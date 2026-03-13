@@ -22,7 +22,7 @@ public class CoasterTrainController : MonoBehaviour
         [Range(0f, 1f)] public float endT;
         [Min(0f)] public float targetSpeed;
         [Min(0f)] public float response;
-        [Min(0f)] public float minSpeedInZone; // Yeni: bölge minimum hýzý
+        [Min(0f)] public float minSpeedInZone;
     }
 
     [Header("References")]
@@ -45,12 +45,12 @@ public class CoasterTrainController : MonoBehaviour
     [SerializeField, Min(0f)] private float cruiseSpeed = 25f;
     [SerializeField, Min(0f)] private float acceleration = 16f;
     [SerializeField, Min(0f)] private float brakeDeceleration = 8f;
-    [SerializeField] private float gravityInfluence = 1.5f; // düþürüldü
+    [SerializeField] private float gravityInfluence = 1.5f;
     [SerializeField, Min(0f)] private float stationCatchDistance = 0.006f;
-    [SerializeField, Min(0f)] private float globalMinRunningSpeed = 8f; // asla düþmeyecek
+    [SerializeField, Min(0f)] private float globalMinRunningSpeed = 8f;
 
     [Header("Uphill Assist")]
-    [SerializeField, Min(0f)] private float uphillBoost = 15f; // yokuþ desteði
+    [SerializeField, Min(0f)] private float uphillBoost = 15f;
     [SerializeField] private float uphillThreshold = 0.3f;
 
     [Header("Lap Bar")]
@@ -63,11 +63,14 @@ public class CoasterTrainController : MonoBehaviour
     [Header("Runtime")]
     [SerializeField, Range(0f, 1f)] private float t;
     [SerializeField, Min(0f)] private float currentSpeed;
+    [SerializeField, Min(0f)] private float positionLerp = 12f;
+    [SerializeField, Min(0f)] private float rotationLerp = 16f;
 
     private RideState state = RideState.Boarding;
     private float stateTimer;
     private float splineLength = 1f;
     private int lapCounter;
+    private bool poseInitialized;
 
     public void SetSpline(SplineContainer container)
     {
@@ -110,11 +113,10 @@ public class CoasterTrainController : MonoBehaviour
         currentSpeed = 0f;
         state = RideState.Boarding;
         stateTimer = 0f;
-
-        if (speedZones.Count == 0)
+        poseInitialized = false;
 
         SetLapBar(0f);
-        ApplyPose();
+        ApplyPose(true);
     }
 
     private void Update()
@@ -165,10 +167,7 @@ public class CoasterTrainController : MonoBehaviour
             case RideState.Running:
                 SetLapBar(1f);
                 UpdateRunningSpeed();
-
-                // Anti-stall
                 currentSpeed = Mathf.Max(currentSpeed, globalMinRunningSpeed);
-
                 AdvanceAlongSpline(currentSpeed);
                 TryEnterStation();
                 break;
@@ -181,13 +180,10 @@ public class CoasterTrainController : MonoBehaviour
     {
         float zoneSpeed = ResolveZoneSpeed(t, cruiseSpeed, 6f);
 
-        // eðim hesapla
         SplineUtility.Evaluate(splineContainer.Spline, t, out _, out float3 tangent, out _);
-
         Vector3 worldForward = splineContainer.transform.TransformDirection((Vector3)tangent).normalized;
 
-        float slope = -worldForward.y;
-
+        float slope = worldForward.y;
         float targetSpeed = zoneSpeed;
 
         if (slope > uphillThreshold)
@@ -197,7 +193,7 @@ public class CoasterTrainController : MonoBehaviour
         }
         else
         {
-            targetSpeed += slope * gravityInfluence * 10f;
+            targetSpeed += -slope * gravityInfluence * 10f;
         }
 
         float zoneMin = GetZoneMinSpeed(t);
@@ -296,7 +292,7 @@ public class CoasterTrainController : MonoBehaviour
         return value >= start || value <= end;
     }
 
-    private void ApplyPose()
+    private void ApplyPose(bool forceSnap = false)
     {
         SplineUtility.Evaluate(
             splineContainer.Spline,
@@ -306,12 +302,24 @@ public class CoasterTrainController : MonoBehaviour
             out float3 localUp
         );
 
-        Vector3 worldPosition = splineContainer.transform.TransformPoint((Vector3)localPosition);
+        Vector3 targetPosition = splineContainer.transform.TransformPoint((Vector3)localPosition);
         Vector3 worldForward = splineContainer.transform.TransformDirection((Vector3)localTangent).normalized;
         Vector3 worldUp = splineContainer.transform.TransformDirection((Vector3)localUp).normalized;
+        Quaternion targetRotation = Quaternion.LookRotation(worldForward, worldUp);
 
-        trainRoot.position = worldPosition;
-        trainRoot.rotation = Quaternion.LookRotation(worldForward, worldUp);
+        if (forceSnap || !poseInitialized)
+        {
+            trainRoot.position = targetPosition;
+            trainRoot.rotation = targetRotation;
+            poseInitialized = true;
+            return;
+        }
+
+        float positionFactor = positionLerp > 0f ? 1f - Mathf.Exp(-positionLerp * Time.deltaTime) : 1f;
+        float rotationFactor = rotationLerp > 0f ? 1f - Mathf.Exp(-rotationLerp * Time.deltaTime) : 1f;
+
+        trainRoot.position = Vector3.Lerp(trainRoot.position, targetPosition, positionFactor);
+        trainRoot.rotation = Quaternion.Slerp(trainRoot.rotation, targetRotation, rotationFactor);
     }
 
     private void SetLapBar(float normalizedClose)
@@ -321,7 +329,6 @@ public class CoasterTrainController : MonoBehaviour
         float angle = Mathf.Lerp(lapBarOpenAngle, lapBarClosedAngle, Mathf.Clamp01(normalizedClose));
 
         Vector3 euler = lapBarPivot.localEulerAngles;
-
         lapBarPivot.localRotation = Quaternion.Euler(angle, euler.y, euler.z);
     }
 
@@ -334,7 +341,6 @@ public class CoasterTrainController : MonoBehaviour
     private static float SafeRatio(float elapsed, float duration)
     {
         if (duration <= 0.0001f) return 1f;
-
         return Mathf.Clamp01(elapsed / duration);
     }
 }

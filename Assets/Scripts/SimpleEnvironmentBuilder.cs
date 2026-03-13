@@ -96,10 +96,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             crown.transform.localPosition = new Vector3(0f, trunkHeight + crownRadius * 0.6f, 0f);
 
             var trunkRenderer = trunk.GetComponent<Renderer>();
-            if (trunkRenderer != null) trunkRenderer.sharedMaterial.color = new Color(0.37f, 0.24f, 0.16f);
+            if (trunkRenderer != null) trunkRenderer.material.color = new Color(0.37f, 0.24f, 0.16f);
 
             var crownRenderer = crown.GetComponent<Renderer>();
-            if (crownRenderer != null) crownRenderer.sharedMaterial.color = new Color(0.22f, 0.48f, 0.24f);
+            if (crownRenderer != null) crownRenderer.material.color = new Color(0.22f, 0.48f, 0.24f);
         }
     }
 

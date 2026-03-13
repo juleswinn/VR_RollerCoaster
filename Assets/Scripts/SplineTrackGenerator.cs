@@ -154,6 +154,7 @@ public class SplineTrackGenerator : MonoBehaviour
 
     private static void AddHelix(List<Vector3> points, Vector3 center, float radius, float heightGain, int segments)
     {
+        segments = Mathf.Max(2, segments);
         for (int i = 0; i < segments; i++)
         {
             float t = i / (float)(segments - 1);

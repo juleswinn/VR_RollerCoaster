@@ -118,7 +118,17 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             float dist = Random.Range(25f, treeSpawnRadius);
             Vector3 basePos = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
 
-            if (basePos.magnitude < stationExclusionRadius) continue;
+            if (Terrain.activeTerrain != null)
+            {
+                basePos.y = Terrain.activeTerrain.SampleHeight(basePos) + Terrain.activeTerrain.transform.position.y;
+            }
+            else
+            {
+                basePos.y = -2f;
+            }
+
+            Vector2 pos2D = new Vector2(basePos.x, basePos.z);
+            if (pos2D.magnitude < stationExclusionRadius) continue;
             if (IsNearTrack(basePos, trackPoints, trackExclusionRadius)) continue;
 
             float treeHeight = Random.Range(treeHeightRange.x, treeHeightRange.y);
@@ -285,10 +295,19 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             float dist = Random.Range(50f, pondSpawnRadius);
             float pondRadius = Random.Range(pondMinRadius, pondMaxRadius);
 
-            Vector3 center = new Vector3(Mathf.Cos(angle) * dist, pondYLevel, Mathf.Sin(angle) * dist);
+            Vector3 center = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
+            if (Terrain.activeTerrain != null)
+            {
+                center.y = Terrain.activeTerrain.SampleHeight(center) + Terrain.activeTerrain.transform.position.y - 0.05f;
+            }
+            else
+            {
+                center.y = pondYLevel;
+            }
 
+            Vector2 pondPos2D = new Vector2(center.x, center.z);
             if (IsNearTrack(center, trackPts, trackExclusionRadius + pondRadius)) continue;
-            if (center.magnitude < stationExclusionRadius + pondRadius) continue;
+            if (pondPos2D.magnitude < stationExclusionRadius + pondRadius) continue;
 
             GameObject pond = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pond.name = $"Pond_{placed:00}";
@@ -308,7 +327,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             GameObject rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             rim.name = $"PondRim_{placed:00}";
             rim.transform.SetParent(pondsRoot.transform, true);
-            rim.transform.position = new Vector3(center.x, pondYLevel - 0.06f, center.z);
+            rim.transform.position = new Vector3(center.x, center.y - 0.01f, center.z);
             rim.transform.localScale = new Vector3(pondRadius * 2.2f, 0.02f, pondRadius * 2.2f);
             SetColor(rim, new Color(0.18f, 0.40f, 0.15f));
 

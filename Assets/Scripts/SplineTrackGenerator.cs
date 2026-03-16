@@ -120,80 +120,60 @@ public class SplineTrackGenerator : MonoBehaviour
 
         points.Add(new Vector3(20f, 30f, 300f));
         points.Add(new Vector3(45f, 8f, 325f));
-        points.Add(new Vector3(75f, 5f, 335f));
+        
+        points.Add(new Vector3(75f,  5f, 330f));
+        points.Add(new Vector3(95f,  5f, 330f));
 
-        points.Add(new Vector3(105f,   5f, 330f));
-        points.Add(new Vector3(115f,  18f, 330f));
-        points.Add(new Vector3(120f,  35f, 328f));
-        points.Add(new Vector3(118f,  48f, 323f));
-        points.Add(new Vector3(112f,  50f, 318f));
-        points.Add(new Vector3(106f,  48f, 313f));
-        points.Add(new Vector3(100f,  35f, 310f));
-        points.Add(new Vector3(98f,   18f, 310f));
-        points.Add(new Vector3(100f,   5f, 310f));
+        points.Add(new Vector3(105f,  5f, 330f)); 
+        points.Add(new Vector3(115f, 15f, 330f)); 
+        points.Add(new Vector3(122f, 32f, 328f)); 
+        points.Add(new Vector3(120f, 48f, 323f)); 
+        points.Add(new Vector3(112f, 52f, 320f)); 
+        points.Add(new Vector3(104f, 48f, 317f)); 
+        points.Add(new Vector3(102f, 32f, 312f)); 
+        points.Add(new Vector3(109f, 15f, 310f)); 
+        points.Add(new Vector3(115f,  5f, 310f)); 
+        
+        points.Add(new Vector3(125f,  5f, 310f));
+        points.Add(new Vector3(145f,  5f, 290f));
 
-        points.Add(new Vector3(115f, 5f, 290f));
-        points.Add(new Vector3(135f, 5f, 265f));
-        points.Add(new Vector3(155f, 5f, 235f));
+        points.Add(new Vector3(160f,  5f, 240f));
+        points.Add(new Vector3(175f, 25f, 200f));
+        points.Add(new Vector3(160f,  5f, 160f));
 
-        points.Add(new Vector3(170f, 5f, 205f));
-        points.Add(new Vector3(180f, 24f, 175f));
-        points.Add(new Vector3(175f, 5f, 145f));
+        points.Add(new Vector3(140f,  5f, 130f));
+        points.Add(new Vector3(120f, 15f, 100f));
+        points.Add(new Vector3(140f,  5f,  70f));
+        points.Add(new Vector3(160f, 15f,  40f));
+        points.Add(new Vector3(120f,  5f,  10f));
+        
+        points.Add(new Vector3(80f, 6f, -30f));
+        points.Add(new Vector3(40f, 8f, -70f));
+        points.Add(new Vector3(10f, 5f, -110f));
+        points.Add(new Vector3(-5f, 5f, -130f));
 
-        AddCorkscrew(points,
-            new Vector3(168f, 8f, 120f),
-            new Vector3(-0.3f, 0f, -1f).normalized,
-            7f, 50f, 1);
+        points.Add(new Vector3(-25f,  5f, -130f)); 
+        points.Add(new Vector3(-35f, 15f, -130f)); 
+        points.Add(new Vector3(-42f, 32f, -128f)); 
+        points.Add(new Vector3(-40f, 48f, -125f)); 
+        points.Add(new Vector3(-32f, 52f, -122f)); 
+        points.Add(new Vector3(-24f, 48f, -119f)); 
+        points.Add(new Vector3(-22f, 32f, -117f)); 
+        points.Add(new Vector3(-29f, 15f, -115f)); 
+        points.Add(new Vector3(-35f,  5f, -115f)); 
+        
+        points.Add(new Vector3(-45f,  5f, -115f));
 
-        points.Add(new Vector3(148f, 5f, 50f));
-        points.Add(new Vector3(135f, 5f, 25f));
+        points.Add(new Vector3(-65f,  5f, -100f));
+        points.Add(new Vector3(-80f, 18f, -80f));
+        points.Add(new Vector3(-65f,  5f, -60f));
 
-        AddWideHelix(points, new Vector3(105f, 5f, 0f), 28f, 5f, 12);
-
-        points.Add(new Vector3(65f, 6f, -25f));
-        points.Add(new Vector3(40f, 14f, -55f));
-        points.Add(new Vector3(20f, 30f, -90f));
-
-        points.Add(new Vector3(5f, 10f, -115f));
-        points.Add(new Vector3(-10f, 5f, -130f));
-
-        points.Add(new Vector3(-25f,   5f, -130f));
-        points.Add(new Vector3(-32f,  16f, -130f));
-        points.Add(new Vector3(-36f,  32f, -128f));
-        points.Add(new Vector3(-34f,  42f, -124f));
-        points.Add(new Vector3(-28f,  45f, -120f));
-        points.Add(new Vector3(-22f,  42f, -117f));
-        points.Add(new Vector3(-18f,  30f, -115f));
-        points.Add(new Vector3(-20f,  16f, -115f));
-        points.Add(new Vector3(-22f,   5f, -115f));
-
-        points.Add(new Vector3(-35f, 5f, -100f));
-        points.Add(new Vector3(-45f, 16f, -80f));
-        points.Add(new Vector3(-40f, 5f, -55f));
-
-        points.Add(new Vector3(-30f, 4f, -30f));
-        points.Add(new Vector3(-18f, 3f, -10f));
-        points.Add(new Vector3(-8f, 2f, 5f));
+        points.Add(new Vector3(-40f,  3f, -40f));
+        points.Add(new Vector3(-20f,  2f, -20f));
+        points.Add(new Vector3(  0f,  2f, -20f));
+        points.Add(new Vector3(  0f,  2f, -10f));
 
         return points;
-    }
-
-    private static void AddCorkscrew(List<Vector3> points, Vector3 start, Vector3 direction, float corkscrewRadius, float forwardLength, int fullTurns)
-    {
-        direction = direction.normalized;
-        Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
-
-        int segments = fullTurns * 12;
-        for (int i = 1; i <= segments; i++)
-        {
-            float t = i / (float)segments;
-            float angle = t * fullTurns * Mathf.PI * 2f;
-            float forwardDist = t * forwardLength;
-            float xOff = Mathf.Sin(angle) * corkscrewRadius;
-            float yOff = (1f - Mathf.Cos(angle)) * corkscrewRadius;
-
-            points.Add(start + direction * forwardDist + right * xOff + Vector3.up * yOff);
-        }
     }
 
     private static void AddWideHelix(List<Vector3> points, Vector3 center, float helixRadius, float heightGain, int segments)

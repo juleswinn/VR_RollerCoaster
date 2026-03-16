@@ -1,5 +1,9 @@
 using UnityEngine;
 using UnityEngine.Splines;
+using UnityEngine.InputSystem.XR;
+#if UNITY_EDITOR || UNITY_STANDALONE
+using Unity.XR.CoreUtils;
+#endif
 
 public class RollerCoasterPrototypeBuilder : MonoBehaviour
 {
@@ -18,15 +22,19 @@ public class RollerCoasterPrototypeBuilder : MonoBehaviour
     [SerializeField] private Material sleeperMaterial;
     [SerializeField] private Material supportMaterial;
     [SerializeField] private Material queueMaterial;
+    [SerializeField] private Material cloudMaterial;
 
     [ContextMenu("Build VR Roller Coaster Prototype")]
     public void BuildPrototype()
     {
+        // XR Origin yoksa olustur
+        EnsureXROrigin();
+
         SplineContainer spline = BuildTrack();
 
         if (spline == null)
         {
-            Debug.LogError("Spline oluþturulamadý.");
+            Debug.LogError("Spline oluÅŸturulamadÄ±.");
             return;
         }
 
@@ -81,7 +89,7 @@ public class RollerCoasterPrototypeBuilder : MonoBehaviour
         mover.SetSpline(spline);
         mover.CacheSplineLength();
 
-        // Legacy mover varsa devre dýþý býrak
+        // Legacy mover varsa devre dï¿½ï¿½ï¿½ bï¿½rak
         Component legacy = cartRoot.GetComponent("SplineCartMover");
         if (legacy is Behaviour b)
             b.enabled = false;
@@ -139,7 +147,16 @@ public class RollerCoasterPrototypeBuilder : MonoBehaviour
 
         if (xrOrigin == null)
         {
-            Debug.LogWarning("XR Origin bulunamadý.");
+            Debug.LogWarning("XR Origin bulunamad.");
+            return;
+        }
+
+        // Eger XR Origin degil de bizim Fallback KameramÄ±zsa, dogrudan koltuga parent yap
+        if (xrOrigin.name == "FallbackMainCamera")
+        {
+            xrOrigin.SetParent(seatAnchor, false);
+            xrOrigin.localPosition = new Vector3(0f, 0.6f, 0f); // Goz hizasi
+            xrOrigin.localRotation = Quaternion.identity;
             return;
         }
 
@@ -160,6 +177,9 @@ public class RollerCoasterPrototypeBuilder : MonoBehaviour
 
         if (skyboxMaterial != null)
             builder.SetSkyboxMaterial(skyboxMaterial);
+
+        if (cloudMaterial != null)
+            builder.SetCloudMaterial(cloudMaterial);
 
         builder.BuildEnvironment();
     }
@@ -224,6 +244,65 @@ public class RollerCoasterPrototypeBuilder : MonoBehaviour
         return obj;
     }
 
+    /// <summary>
+    /// Sahnede XR Origin yoksa sifirdan olusturur:
+    /// XR Origin (VR)
+    ///   â””â”€ Camera Offset
+    ///        â””â”€ Main Camera (Camera + TrackedPoseDriver + AudioListener)
+    /// </summary>
+    private void EnsureXROrigin()
+    {
+        // Zaten varsa dokunma
+        GameObject existing = GameObject.Find("XR Origin (VR)");
+        if (existing == null)
+            existing = GameObject.Find("XR Origin");
+
+        if (existing != null)
+        {
+            xrOrigin = existing.transform;
+            return;
+        }
+
+        // --- Yeni XR Origin olustur ---
+        GameObject xrOriginObj = new GameObject("XR Origin (VR)");
+
+#if UNITY_EDITOR || UNITY_STANDALONE
+        XROrigin xrComp = xrOriginObj.AddComponent<XROrigin>();
+#endif
+
+        // Camera Offset
+        GameObject cameraOffset = new GameObject("Camera Offset");
+        cameraOffset.transform.SetParent(xrOriginObj.transform, false);
+        cameraOffset.transform.localPosition = Vector3.zero;
+
+#if UNITY_EDITOR || UNITY_STANDALONE
+        xrComp.CameraFloorOffsetObject = cameraOffset;
+#endif
+
+        // Main Camera
+        GameObject camObj = new GameObject("Main Camera");
+        camObj.tag = "MainCamera";
+        camObj.transform.SetParent(cameraOffset.transform, false);
+        camObj.transform.localPosition = new Vector3(0f, 1.6f, 0f); // Goz yuksekligi
+
+        Camera cam = camObj.AddComponent<Camera>();
+        cam.nearClipPlane = 0.1f;
+        cam.farClipPlane = 1000f;
+
+        camObj.AddComponent<AudioListener>();
+
+        // TrackedPoseDriver â€” basi VR cihaz pozisyonuna baglar
+        TrackedPoseDriver tpd = camObj.AddComponent<TrackedPoseDriver>();
+
+#if UNITY_EDITOR || UNITY_STANDALONE
+        xrComp.Camera = cam;
+#endif
+
+        xrOrigin = xrOriginObj.transform;
+
+        Debug.Log("XR Origin (VR) sahnede bulunamadigi icin yeniden olusturuldu.");
+    }
+
     private static Transform FindCandidateXROrigin()
     {
         GameObject xr = GameObject.Find("XR Origin (VR)");
@@ -241,6 +320,14 @@ public class RollerCoasterPrototypeBuilder : MonoBehaviour
             return root;
         }
 
-        return null;
+        // Failsafe camera
+        GameObject fallbackCamObj = new GameObject("FallbackMainCamera");
+        Camera fallbackCam = fallbackCamObj.AddComponent<Camera>();
+        fallbackCamObj.tag = "MainCamera";
+
+        // Ses dinleyici ekle
+        fallbackCamObj.AddComponent<AudioListener>();
+
+        return fallbackCamObj.transform;
     }
 }

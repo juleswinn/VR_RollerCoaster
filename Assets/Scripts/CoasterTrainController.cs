@@ -31,26 +31,28 @@ public class CoasterTrainController : MonoBehaviour
     [SerializeField] private Transform lapBarPivot;
 
     [Header("Station")]
-    [SerializeField, Range(0f, 1f)] private float stationStopT = 0.01f;
+    [SerializeField, Range(0f, 1f)] private float stationStopT = 0.0f;
     [SerializeField, Min(0f)] private float boardingDuration = 2f;
     [SerializeField, Min(0f)] private float restraintCloseDuration = 1.2f;
     [SerializeField, Min(0f)] private float dispatchDelay = 3f;
 
     [Header("Launch")]
     [SerializeField, Min(0f)] private float launchDuration = 2.2f;
-    [SerializeField, Min(0f)] private float launchSpeed = 30f;
+    [SerializeField, Min(0f)] private float launchSpeed = 10f;
 
     [Header("Motion")]
     [SerializeField] private bool loop = true;
-    [SerializeField, Min(0f)] private float cruiseSpeed = 25f;
-    [SerializeField, Min(0f)] private float acceleration = 16f;
-    [SerializeField, Min(0f)] private float brakeDeceleration = 8f;
-    [SerializeField] private float gravityInfluence = 1.5f;
-    [SerializeField, Min(0f)] private float stationCatchDistance = 0.006f;
-    [SerializeField, Min(0f)] private float globalMinRunningSpeed = 8f;
+    [SerializeField, Min(0f)] private float cruiseSpeed = 10f;
+    [SerializeField, Min(0f)] private float acceleration = 4f;
+    [SerializeField, Min(0f)] private float brakeDeceleration = 5f;
+    [SerializeField] private float gravityInfluence = 0.5f;
+    [SerializeField, Min(0f)] private float stationCatchDistance = 0.025f;
+    [SerializeField, Min(0f)] private float globalMinRunningSpeed = 2f;
+    [SerializeField, Min(0f)] private float maxRunningSpeed = 18f;
+    [SerializeField, Range(0f, 0.1f)] private float stationApproachZone = 0.03f;
 
     [Header("Uphill Assist")]
-    [SerializeField, Min(0f)] private float uphillBoost = 15f;
+    [SerializeField, Min(0f)] private float uphillBoost = 8f;
     [SerializeField] private float uphillThreshold = 0.3f;
 
     [Header("Lap Bar")]
@@ -166,8 +168,9 @@ public class CoasterTrainController : MonoBehaviour
 
             case RideState.Running:
                 SetLapBar(1f);
+                ApplyStationApproachBrake();
                 UpdateRunningSpeed();
-                currentSpeed = Mathf.Max(currentSpeed, globalMinRunningSpeed);
+                currentSpeed = Mathf.Clamp(currentSpeed, globalMinRunningSpeed, maxRunningSpeed);
                 AdvanceAlongSpline(currentSpeed);
                 TryEnterStation();
                 break;
@@ -214,13 +217,27 @@ public class CoasterTrainController : MonoBehaviour
         return globalMinRunningSpeed;
     }
 
+    private void ApplyStationApproachBrake()
+    {
+        if (lapCounter <= 0) return;
+
+        float distToStation = Mathf.Abs(Mathf.DeltaAngle(t * 360f, stationStopT * 360f)) / 360f;
+
+        if (distToStation < stationApproachZone)
+        {
+            float brakeFactor = 1f - (distToStation / stationApproachZone);
+            float brakeTarget = Mathf.Lerp(cruiseSpeed * 0.5f, 1f, brakeFactor);
+            currentSpeed = Mathf.MoveTowards(currentSpeed, brakeTarget, brakeDeceleration * 2f * Time.deltaTime);
+        }
+    }
+
     private void TryEnterStation()
     {
         if (lapCounter <= 0) return;
 
         float delta = Mathf.Abs(Mathf.DeltaAngle(t * 360f, stationStopT * 360f)) / 360f;
 
-        if (delta <= stationCatchDistance && currentSpeed < 3f)
+        if (delta <= stationCatchDistance)
         {
             EnterState(RideState.Boarding);
             t = stationStopT;

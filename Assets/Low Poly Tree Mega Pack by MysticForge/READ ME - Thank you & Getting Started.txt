@@ -1,0 +1,16 @@
+Thank You for Downloading!
+This free asset pack contains 1000+ stylized low poly trees — including Pine, Palm, and Woodland variations — optimized for performance and compatible with all Unity Render Pipelines.
+
+🎁 If you find this pack useful, please consider leaving a ⭐️⭐️⭐️⭐️⭐️ review on the Asset Store. It really helps me continue creating free and high-quality assets.
+
+
+🛠 Getting Started Tips
+
+Materials for each Render Pipeline are located in the /Materials folder
+
+Use the correct material for URP, HDRP, or Built-in RP depending on your project
+
+Tree prefabs are located under /Prefabs sorted by category (Pine, Palm, Woodlands)
+
+Thanks again, and happy developing!
+— MysticForge 🌲

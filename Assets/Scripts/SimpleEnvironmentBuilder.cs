@@ -55,7 +55,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     public void SetSkyboxMaterial(Material material) { skyboxMaterial = material; }
     public void SetCloudMaterial(Material material) { cloudMaterial = material; }
 
-    [ContextMenu("Build Environment")]
+    [ContextMenu("BuildEnvironment")]
     public void BuildEnvironment()
     {
 #if UNITY_EDITOR
@@ -65,7 +65,17 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         if (buildMountains) CreateMountains();
         if (buildTrees) CreateProfessionalTrees();
         if (buildPonds) CreatePondsAndFauna();
-        if (buildClouds) CreateRealisticClouds();
+        
+        // Clouds logic with cleanup
+        if (buildClouds) 
+        {
+            CreateRealisticClouds();
+        }
+        else 
+        {
+            Transform existingClouds = transform.Find("PrototypeClouds");
+            if (existingClouds != null) DestroyImmediate(existingClouds.gameObject);
+        }
         
         // Skybox uygula
         ApplySkyboxOnly();
@@ -117,13 +127,28 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         string sheepPath = "Assets/UrsaAnimation/LOW POLY CUBIC - Goat and Sheep Pack/Prefabs_URP/SK_Sheep_white.prefab";
         var sheep = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(sheepPath);
         
+        // Phase 3: New Animals
+        string deerPath = "Assets/Backrock Studios/LowPoly-Animals/Prefabs/Deer/Deer_v1.prefab";
+        var deer = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(deerPath);
+        
+        string horsePath = "Assets/Backrock Studios/LowPoly-Animals/Prefabs/Horse/Horse_v1.prefab";
+        var horse = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(horsePath);
+        
         List<GameObject> animalsList = new List<GameObject>();
         if (butterfly) animalsList.Add(butterfly);
         if (goat) animalsList.Add(goat);
         if (sheep) animalsList.Add(sheep);
+        if (deer) animalsList.Add(deer);
+        if (horse) animalsList.Add(horse);
         if (animalsList.Count > 0) customAnimalPrefabs = animalsList.ToArray();
 
-        string mountainPath = "Assets/Forest Pack/Prefabs/Mountain.prefab";
+        // Phase 3: New Fish
+        string fishPath = "Assets/Backrock Studios/LowPoly-Animals/Prefabs/Fish-1/fish_1_v1.prefab";
+        var fishPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(fishPath);
+        if (fishPrefab) customFishPrefabs = new GameObject[] { fishPrefab };
+
+        // Phase 3: New Mountain
+        string mountainPath = "Assets/BackgroundMountainFree/Prefabs/LowPolyMountain.prefab";
         var mountain = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(mountainPath);
         if (mountain) customMountainPrefab = mountain;
 
@@ -308,13 +333,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         centerMountain.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
 
         // Dis Halka Buyuk Daglar (Ring) - Daha kucuk boyutlarda
-        int mountainCount = 28; 
-        float radius = 500f; 
+        int mountainCount = 12; 
+        float radius = 700f; 
 
         for (int i = 0; i < mountainCount; i++)
         {
             float angle = (i * Mathf.PI * 2f) / mountainCount;
-            float r = radius + Random.Range(-20f, 30f); 
+            float r = radius + Random.Range(-40f, 60f); 
             
             Vector3 pos = new Vector3(Mathf.Cos(angle) * r, -5f, Mathf.Sin(angle) * r);
             
@@ -621,15 +646,15 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     
                     if (isButterfly)
                     {
-                        // Daha da kucuk kelebekler
-                        float butterflyScale = Random.Range(0.03f, 0.06f);
+                        // Phase 3: Daha da kucuk kelebekler (Gozle gorulmesi zor)
+                        float butterflyScale = Random.Range(0.005f, 0.02f);
                         animal.transform.localScale = Vector3.one * butterflyScale;
                         animalPos.y += Random.Range(0.5f, 2.5f); // Ucsunlar
                         animal.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                     }
                     else
                     {
-                        // Keci/Koyun ayari - zeminin altina girmemesini sagla
+                        // Keci/Koyun/Geyik/At ayari - zeminin altina girmemesini sagla
                         animal.transform.localScale = Vector3.one * Random.Range(0.8f, 1.2f);
                         // Kesisim sorunlarini engellemek icin birazcik yukari kaydir (0.1f offset)
                         animalPos.y += 0.1f; 

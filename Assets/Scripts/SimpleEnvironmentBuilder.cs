@@ -31,8 +31,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     [SerializeField] private GameObject[] customCoasterAnimalPrefabs;
 
     [Header("Trees")]
-    [SerializeField, Min(0)] private int treeCount = 3000;
-    [SerializeField] private float treeSpawnRadius = 500f;
+    [SerializeField, Min(0)] private int treeCount = 5000;
+    [SerializeField] private float treeSpawnRadius = 550f;
     [SerializeField] private Vector2 treeHeightRange = new Vector2(5f, 10f);
     [SerializeField] private float trackExclusionRadius = 18f;
     [SerializeField] private float stationExclusionRadius = 35f;
@@ -99,10 +99,11 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     // ================================================================
     private void AutoAssignAssets()
     {
-        // --- AGACLAR (MysticForge URP Pine + Woodland + Forest Pack) ---
+        // --- AGACLAR: Sadece dogal / gercekci renkli assetler ---
+        // MysticForge BasicTree ve Pine Trees TAMAMEN KALDIRILDI (rengarenk, kartun gorunumu)
         var trees = new List<GameObject>();
 
-        // Forest Pack agaclari – PRIMARY (yuvarlak, gur yaprakli, en iyi orman gorunumu)
+        // Forest Pack agaclari – PRIMARY (dogal yesil tonlar, URP uyumlu)
         string[] forestTreePaths = new string[]
         {
             "Assets/Forest Pack/Prefabs/Tree001_V1.prefab",
@@ -115,12 +116,14 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             "Assets/Forest Pack/Prefabs/Tree004_V2.prefab",
             "Assets/Forest Pack/Prefabs/Tree004_V3.prefab",
             "Assets/Forest Pack/Prefabs/Tree004_V4.prefab",
+            "Assets/Forest Pack/Prefabs/Tree004_V5.prefab",
+            "Assets/Forest Pack/Prefabs/Tree004_V6.prefab",
             "Assets/Forest Pack/Prefabs/Tree005_V1.prefab",
             "Assets/Forest Pack/Prefabs/Tree005_V2.prefab",
         };
         foreach (var p in forestTreePaths) { var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (t) trees.Add(t); }
 
-        // Nicrom LPW Trees – SECONDARY (ruzgar animasyonlu, URP dostu)
+        // Nicrom LPW Trees – SECONDARY (ruzgar animasyonlu, URP dostu, dogal yesil)
         string[] nicromPaths = new string[]
         {
             "Assets/Nicrom/Shaders/Wind/Prefabs/LPW_Tree_A1_6.5m_01.prefab",
@@ -131,16 +134,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         };
         foreach (var p in nicromPaths) { var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (t) trees.Add(t); }
 
-        // MysticForge Woodland BasicTrees – SECONDARY (sadece genis yaprakli tipler)
-        int[] woodNums = new int[] { 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 };
-        foreach (int n in woodNums)
-        {
-            string wp = "Assets/Low Poly Tree Mega Pack by MysticForge/Prefabs/URP/Woodland/BasicTree " + n + ".prefab";
-            var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(wp);
-            if (t) trees.Add(t);
-        }
-
-        // Tree9 – FALLBACK
+        // Tree9 – TERTIARY (dokulu, gercekci gorunum)
         string[] tree9Paths = new string[]
         {
             "Assets/Tree9/Tree9_2.prefab", "Assets/Tree9/Tree9_3.prefab",
@@ -470,17 +464,23 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         int totalPlaced = 0;
 
         // ===== YOGUN ORMAN KUMELERI =====
+        // 5 kumeden 8 kumeye cikartildi – daha genis ormanlik alan
         // Her kume: Gaussian dagilimla yogun merkez, seyrelen kenar
         Vector3[] clusterCenters = new Vector3[]
         {
-            new Vector3(-180f, 0f,  130f),
-            new Vector3( 165f, 0f,  210f),
-            new Vector3(-230f, 0f, -160f),
-            new Vector3( 260f, 0f, -190f),
-            new Vector3(  55f, 0f,  300f),
+            // Orijinal kumeler (buyutulmus)
+            new Vector3(-200f, 0f,  150f),
+            new Vector3( 200f, 0f,  240f),
+            new Vector3(-270f, 0f, -180f),
+            new Vector3( 300f, 0f, -220f),
+            new Vector3(  60f, 0f,  360f),
+            // Yeni kumeler – bos kalan yonleri dolduruyor
+            new Vector3(-300f, 0f,   50f),   // sol orta serit
+            new Vector3( 100f, 0f, -320f),   // geri-sag kose
+            new Vector3(-100f, 0f,  -280f),  // geri-sol kose
         };
-        float[] clusterRadii  = new float[] { 95f,  85f, 105f,  90f,  80f };
-        int[]   clusterCounts = new int[]   { 520, 460,  560, 490, 420 };
+        float[] clusterRadii  = new float[] { 120f, 110f, 130f, 120f, 110f, 115f, 115f, 110f };
+        int[]   clusterCounts = new int[]   { 680,  620,  740,  660,  580,  640,  620,  600 };
 
         for (int c = 0; c < clusterCenters.Length; c++)
         {
@@ -511,14 +511,15 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         }
 
         // ===== DAGITIK ARKA PLAN AGACLARI =====
+        // Daha az bosluk – orman daha kontinyu gorunsun
         int scattered = treeCount - totalPlaced;
         int scAtt = 0;
-        while (scAtt < scattered * 7 && totalPlaced < treeCount)
+        while (scAtt < scattered * 8 && totalPlaced < treeCount)
         {
             scAtt++;
             float angle = Random.Range(0f, Mathf.PI * 2f);
             float dist  = Random.Range(55f, treeSpawnRadius);
-            if (dist < 150f && Random.value < 0.55f) continue;
+            if (dist < 120f && Random.value < 0.45f) continue; // merkez boslugu hafif azaltildi
 
             Vector3 bp = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
             bp.y = GetTerrainY(bp);

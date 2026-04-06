@@ -113,12 +113,15 @@ public class RealisticTrackBuilder : MonoBehaviour
 
         Vector3? prevLeft = null;
         Vector3? prevRight = null;
+        Vector3? prevCenter = null;
 
         for (int i = 0; i <= steps; i++)
         {
             float t = i / (float)steps;
 
             EvaluateTrackFrame(t, out Vector3 position, out _, out Vector3 up, out Vector3 right);
+            
+            Vector3 centerSpine = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f);
 
             Vector3 left = position - right * (railGauge * 0.5f);
             Vector3 rightRail = position + right * (railGauge * 0.5f);
@@ -127,10 +130,12 @@ public class RealisticTrackBuilder : MonoBehaviour
             {
                 CreateTubeSegment(prevLeft.Value, left, railRadius, railsRoot, "RailLeft", railMaterial);
                 CreateTubeSegment(prevRight.Value, rightRail, railRadius, railsRoot, "RailRight", railMaterial);
+                CreateTubeSegment(prevCenter.Value, centerSpine, railRadius * 1.6f, railsRoot, "RailSpine", railMaterial);
             }
 
             prevLeft = left;
             prevRight = rightRail;
+            prevCenter = centerSpine;
         }
     }
 
@@ -145,6 +150,7 @@ public class RealisticTrackBuilder : MonoBehaviour
             EvaluateTrackFrame(t, out Vector3 position, out Vector3 forward, out Vector3 up, out _);
 
             GameObject sleeper = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            if (Application.isPlaying) Destroy(sleeper.GetComponent<Collider>()); else DestroyImmediate(sleeper.GetComponent<Collider>());
             sleeper.name = $"Sleeper_{i:0000}";
             sleeper.transform.SetParent(sleepersRoot, true);
 
@@ -164,17 +170,20 @@ public class RealisticTrackBuilder : MonoBehaviour
         {
             float t = i / (float)supportCount;
 
-            EvaluateTrackFrame(t, out Vector3 position, out _, out _, out _);
+            EvaluateTrackFrame(t, out Vector3 position, out _, out Vector3 up, out _);
 
             float baseY = ResolveSupportBaseHeight(position);
             Vector3 basePoint = new Vector3(position.x, baseY, position.z);
+            
+            Vector3 supportTop = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f);
 
-            if (position.y - basePoint.y < 0.75f)
+            if (supportTop.y - basePoint.y < 0.75f)
                 continue;
 
-            CreateTubeSegment(basePoint, position, supportRadius, supportsRoot, $"Support_{i:0000}", supportMaterial);
+            CreateTubeSegment(basePoint, supportTop, supportRadius, supportsRoot, $"Support_{i:0000}", supportMaterial);
 
             GameObject foot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            if (Application.isPlaying) Destroy(foot.GetComponent<Collider>()); else DestroyImmediate(foot.GetComponent<Collider>());
             foot.name = $"SupportFoot_{i:0000}";
             foot.transform.SetParent(supportsRoot, true);
             foot.transform.position = basePoint + Vector3.up * 0.06f;
@@ -228,6 +237,7 @@ public class RealisticTrackBuilder : MonoBehaviour
             return;
 
         GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        if (Application.isPlaying) Object.Destroy(segment.GetComponent<Collider>()); else Object.DestroyImmediate(segment.GetComponent<Collider>());
         segment.name = objectName;
         segment.transform.SetParent(parent, true);
         segment.transform.position = (start + end) * 0.5f;

@@ -14,7 +14,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     [SerializeField] private bool buildRollerCoasterAnimals = true;
 
     [Header("Terrain")]
-    [SerializeField, Min(64f)] private float terrainSize = 1200f;
+    [SerializeField, Min(64f)] private float terrainSize = 8000f;
     [SerializeField, Min(10f)] private float terrainHeight = 200f;
     [SerializeField] private int heightmapResolution = 513;
 
@@ -31,8 +31,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     [SerializeField] private GameObject[] customCoasterAnimalPrefabs;
 
     [Header("Trees")]
-    [SerializeField, Min(0)] private int treeCount = 5000;
-    [SerializeField] private float treeSpawnRadius = 550f;
+    [SerializeField, Min(0)] private int treeCount = 10000;
+    [SerializeField] private float treeSpawnRadius = 2500f;
     [SerializeField] private Vector2 treeHeightRange = new Vector2(5f, 10f);
     [SerializeField] private float trackExclusionRadius = 18f;
     [SerializeField] private float stationExclusionRadius = 35f;
@@ -80,6 +80,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         if (buildNearTrackPonds) CreateNearTrackPonds();
         CreateCentralFeaturePond(); // Pistin yanindaki buyuk ozel golet
         if (buildRollerCoasterAnimals) CreateRollerCoasterAnimals();
+        CreateGardenProps();
+        SpawnLivingBirdsController();
 
         // Bulutlar KAPALI - mevcut varsa temizle
         {
@@ -257,7 +259,11 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         if (skyboxMaterial != null) RenderSettings.skybox = skyboxMaterial;
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox;
         RenderSettings.ambientIntensity = 1f;
+        RenderSettings.fog = false;
         DynamicGI.UpdateEnvironment();
+
+        Camera[] cams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+        foreach(var c in cams) c.farClipPlane = 60000f;
 
         Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
         foreach (var l in lights)
@@ -327,8 +333,24 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 heights[y, x] = Mathf.PerlinNoise(x * fns + 50f, y * fns + 50f) * fnStr;
         td.SetHeights(0, 0, heights);
 
-        Texture2D gt = CreateSolidColorTexture(64, new Color(0.28f, 0.55f, 0.22f));
-        TerrainLayer gl = new TerrainLayer { diffuseTexture = gt, tileSize = new Vector2(10f, 10f) };
+        Texture2D gt = null;
+        Texture2D nrm = null;
+#if UNITY_EDITOR
+        gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Diffuse.png");
+        nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Normal.png");
+        
+        if (gt == null) gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground3/ground3_Diffuse.tga");
+        if (nrm == null) nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground3/ground3_Normal.tga");
+#endif
+        if (gt == null) gt = CreateSolidColorTexture(64, new Color(0.15f, 0.35f, 0.12f, 1f));
+        
+        TerrainLayer gl = new TerrainLayer { 
+            diffuseTexture = gt, 
+            normalMapTexture = nrm, 
+            tileSize = new Vector2(15f, 15f),
+            smoothness = 0f, 
+            metallic = 0f 
+        };
         td.terrainLayers = new TerrainLayer[] { gl };
 
         float[,,] am = new float[td.alphamapResolution, td.alphamapResolution, 1];
@@ -345,10 +367,6 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
     // ================================================================
     //  MOUNTAINS
-    //  Mesh bounds OLCULEREK guvenli mesafe ve olcek hesaplanir.
-    //  Her prefabin gercek boyutunu alir -> hic tahminde bulunmaz.
-    //  Hedef: daglarin tabaninin gameplay alanina (treeSpawnRadius+80m)
-    //  kesinlikle girmemesi.
     // ================================================================
     private void CreateMountains()
     {
@@ -361,10 +379,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Random.State saved = Random.state;
         Random.InitState(7);
 
-        // Gameplay alaninin otesinde tampon: agaclar 500m, +100m guvenlik bandi
         float safeRadius = treeSpawnRadius + 100f;
-
-        // Hedef gorus yuksekligi: daglarin yukari ne kadar cikacagi (Unity metres)
         float targetPeakHeight = 200f;
 
         int ringCount = 26;
@@ -375,7 +390,6 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             GameObject prefab = customMountainPrefabs[Random.Range(0, customMountainPrefabs.Length)];
             if (prefab == null) continue;
 
-            // Prefabin gercek mesh boyutlarini al
             MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
             if (mf == null || mf.sharedMesh == null) continue;
 
@@ -383,16 +397,15 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             float meshHeight    = Mathf.Max(mb.size.y, 0.001f);
             float meshHalfWidth = Mathf.Max(mb.extents.x, mb.extents.z);
 
-            // Istenen gorunur yukseklige gore olcegi hesapla
-            float scale = Mathf.Clamp(targetPeakHeight / meshHeight, 0.01f, 50f);
+            targetPeakHeight = 800f;
 
-            // Guvenli minimum mesafe: taban gameplay alanini gecmesin
+            float scale = Mathf.Clamp(targetPeakHeight / meshHeight, 0.1f, 1500f);
+
             float halfWidthWorld = meshHalfWidth * scale;
-            float minDist = safeRadius + halfWidthWorld + 50f; // 50m ekstra tampon
+            float minDist = safeRadius + halfWidthWorld + 50f;
             float dist = minDist + Random.Range(0f, 80f);
 
             Vector3 pos = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-            // Tabanin %15'ini topraga göm: dogal gorunum
             pos.y = GetTerrainY(pos) - meshHeight * scale * 0.15f;
 
             GameObject mountain;
@@ -407,7 +420,6 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             FixPinkMaterials(mountain);
         }
 
-        // Arka plan derinligi: daha buyuk, daha uzak
         for (int i = 0; i < 12; i++)
         {
             float angle = Random.Range(0f, Mathf.PI * 2f);
@@ -422,8 +434,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             float meshHeight    = Mathf.Max(mb.size.y, 0.001f);
             float meshHalfWidth = Mathf.Max(mb.extents.x, mb.extents.z);
 
-            // Arka plan: %50 daha buyuk, daha uzakta
-            float scale = Mathf.Clamp(targetPeakHeight * 1.5f / meshHeight, 0.01f, 50f);
+            targetPeakHeight = 800f;
+            float scale = Mathf.Clamp(targetPeakHeight * 1.5f / meshHeight, 0.1f, 1500f);
             float halfWidthWorld = meshHalfWidth * scale;
             float minDist = safeRadius + halfWidthWorld + 100f;
             float dist = minDist + Random.Range(50f, 150f);
@@ -448,125 +460,70 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
     // ================================================================
     //  TREES
-
     // ================================================================
     private void CreateProfessionalTrees()
     {
         Transform existing = transform.Find("PrototypeTrees");
         if (existing != null) DestroyImmediate(existing.gameObject);
-        GameObject root = new GameObject("PrototypeTrees");
-        root.transform.SetParent(transform, false);
+
+        Transform terrainTransform = transform.Find("PrototypeTerrain");
+        if (terrainTransform == null) return;
+        Terrain terrain = terrainTransform.GetComponent<Terrain>();
+        if (terrain == null || terrain.terrainData == null) return;
+        
+        TerrainData td = terrain.terrainData;
+        
+        bool hasCustom = customTreePrefabs != null && customTreePrefabs.Length > 0;
+        if (hasCustom)
+        {
+            TreePrototype[] prototypes = new TreePrototype[customTreePrefabs.Length];
+            for (int i = 0; i < customTreePrefabs.Length; i++)
+            {
+                prototypes[i] = new TreePrototype { prefab = customTreePrefabs[i] };
+            }
+            td.treePrototypes = prototypes;
+            terrain.Flush();
+        }
+        else return;
 
         List<Vector3> trackPoints = GetTrackExclusionPoints();
         Random.State saved = Random.state;
         Random.InitState(99);
-        bool hasCustom = customTreePrefabs != null && customTreePrefabs.Length > 0;
-        int totalPlaced = 0;
+        
+        List<TreeInstance> treeInstances = new List<TreeInstance>();
+        Vector3 terrainPos = terrainTransform.position;
+        Vector3 terrainSizeVector = td.size;
 
-        // ===== YOGUN ORMAN KUMELERI =====
-        // 5 kumeden 8 kumeye cikartildi – daha genis ormanlik alan
-        // Her kume: Gaussian dagilimla yogun merkez, seyrelen kenar
-        Vector3[] clusterCenters = new Vector3[]
+        for (int i = 0; i < treeCount; i++)
         {
-            // Orijinal kumeler (buyutulmus)
-            new Vector3(-200f, 0f,  150f),
-            new Vector3( 200f, 0f,  240f),
-            new Vector3(-270f, 0f, -180f),
-            new Vector3( 300f, 0f, -220f),
-            new Vector3(  60f, 0f,  360f),
-            // Yeni kumeler – bos kalan yonleri dolduruyor
-            new Vector3(-300f, 0f,   50f),   // sol orta serit
-            new Vector3( 100f, 0f, -320f),   // geri-sag kose
-            new Vector3(-100f, 0f,  -280f),  // geri-sol kose
-        };
-        float[] clusterRadii  = new float[] { 120f, 110f, 130f, 120f, 110f, 115f, 115f, 110f };
-        int[]   clusterCounts = new int[]   { 680,  620,  740,  660,  580,  640,  620,  600 };
-
-        for (int c = 0; c < clusterCenters.Length; c++)
-        {
-            Vector3 cc  = clusterCenters[c];
-            float   cr  = clusterRadii[c];
-            int     cnt = clusterCounts[c];
-            int     att = 0;
-
-            while (att < cnt * 8 && totalPlaced < treeCount)
-            {
-                att++;
-                float u1 = Mathf.Max(0.0001f, 1f - Random.value);
-                float u2 = 1f - Random.value;
-                float gauss = Mathf.Sqrt(-2f * Mathf.Log(u1)) * Mathf.Sin(2f * Mathf.PI * u2);
-                float dist  = Mathf.Abs(gauss * cr * 0.45f);
-                if (dist > cr) continue;
-
-                float angle = Random.Range(0f, Mathf.PI * 2f);
-                Vector3 bp  = cc + new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-                bp.y = GetTerrainY(bp);
-
-                if (new Vector2(bp.x, bp.z).magnitude < stationExclusionRadius) continue;
-                if (IsNearTrack(bp, trackPoints, trackExclusionRadius)) continue;
-
-                PlaceTree(bp, root.transform, hasCustom, totalPlaced);
-                totalPlaced++;
-            }
-        }
-
-        // ===== DAGITIK ARKA PLAN AGACLARI =====
-        // Daha az bosluk – orman daha kontinyu gorunsun
-        int scattered = treeCount - totalPlaced;
-        int scAtt = 0;
-        while (scAtt < scattered * 8 && totalPlaced < treeCount)
-        {
-            scAtt++;
             float angle = Random.Range(0f, Mathf.PI * 2f);
-            float dist  = Random.Range(55f, treeSpawnRadius);
-            if (dist < 120f && Random.value < 0.45f) continue; // merkez boslugu hafif azaltildi
-
+            float dist = Random.Range(55f, treeSpawnRadius);
             Vector3 bp = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-            bp.y = GetTerrainY(bp);
-
+            
             if (new Vector2(bp.x, bp.z).magnitude < stationExclusionRadius) continue;
             if (IsNearTrack(bp, trackPoints, trackExclusionRadius)) continue;
 
-            PlaceTree(bp, root.transform, hasCustom, totalPlaced);
-            totalPlaced++;
+            float normalizedX = (bp.x - terrainPos.x) / terrainSizeVector.x;
+            float normalizedZ = (bp.z - terrainPos.z) / terrainSizeVector.z;
+            
+            treeInstances.Add(new TreeInstance
+            {
+                position = new Vector3(normalizedX, 0f, normalizedZ),
+                color = Color.white,
+                lightmapColor = Color.white,
+                prototypeIndex = Random.Range(0, customTreePrefabs.Length),
+                heightScale = Random.Range(0.8f, 1.4f),
+                widthScale = Random.Range(0.8f, 1.4f),
+                rotation = Random.Range(0f, Mathf.PI * 2f)
+            });
         }
 
+        td.SetTreeInstances(treeInstances.ToArray(), true);
         Random.state = saved;
     }
 
-    private void PlaceTree(Vector3 pos, Transform parent, bool hasCustom, int index)
-    {
-        GameObject tree = null;
-        if (hasCustom)
-        {
-            GameObject prefab = customTreePrefabs[Random.Range(0, customTreePrefabs.Length)];
-            if (prefab != null)
-            {
-#if UNITY_EDITOR
-                tree = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, parent);
-#else
-                tree = Instantiate(prefab, parent);
-#endif
-                tree.transform.position = pos;
-                tree.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                tree.transform.localScale = prefab.transform.localScale * Random.Range(1.5f, 2.2f);
-            }
-        }
-        if (tree == null)
-        {
-            float h = Random.Range(treeHeightRange.x, treeHeightRange.y);
-            switch (Random.Range(0, 3))
-            {
-                case 0:  tree = CreatePineTree(pos, h, index);  break;
-                case 1:  tree = CreateOakTree(pos, h, index);   break;
-                default: tree = CreateBirchTree(pos, h, index); break;
-            }
-            tree.transform.SetParent(parent, true);
-        }
-    }
-
     // ================================================================
-    //  PONDS AND FAUNA  (uzak goletler)
+    //  PONDS AND FAUNA
     // ================================================================
     private void CreatePondsAndFauna()
     {
@@ -579,20 +536,14 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Random.State saved = Random.state;
         Random.InitState(42);
         int placed = 0, attempts = 0;
-
+        GameObject[] flowerPrefabs = GetFlowerPrefabs();
+        
         while (placed < pondCount && attempts < pondCount * 15)
         {
             attempts++;
             float angle = Random.Range(0f, Mathf.PI * 2f);
             float dist = Random.Range(60f, pondSpawnRadius);
             float radius = Random.Range(pondMinRadius, pondMaxRadius);
-            Vector3 center = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-            center.y = GetTerrainY(center) + pondYOffset;
-            Vector2 pos2D = new Vector2(center.x, center.z);
-            if (IsNearTrack(center, trackPts, trackExclusionRadius + radius)) continue;
-            if (pos2D.magnitude < stationExclusionRadius + radius) continue;
-            SpawnPond(pondsRoot.transform, center, radius, placed);
-            placed++;
         }
         Random.state = saved;
     }
@@ -1014,6 +965,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 ap.y += 0.5f;
             }
             animal.transform.position = ap;
+            bool isB = animal.name.Contains("Butterfly") || animal.name.Contains("fly");
+            if (!isB) animal.AddComponent<AnimalWander>();
         }
 
         // 3. KAYALAR – KUME halinde (2-3 kume, her kumede 3-6 tas)
@@ -1129,6 +1082,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             animal.transform.position = pos + Vector3.up * 0.1f;
             animal.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             animal.transform.localScale = prefab.transform.localScale * Random.Range(0.8f, 1.3f);
+            animal.AddComponent<AnimalWander>();
             placed++;
         }
         Random.state = saved;
@@ -1373,5 +1327,82 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         }
         rend.sharedMaterial = mat;
+    }
+
+    private void SpawnLivingBirdsController()
+    {
+        Transform existing = transform.Find("PrototypeBirds");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+
+        // Remove any old global controllers left over
+        GameObject oldCtl = GameObject.Find("_livingBirdsController");
+        if (oldCtl != null) DestroyImmediate(oldCtl);
+
+        GameObject birdsRoot = new GameObject("PrototypeBirds");
+        birdsRoot.transform.SetParent(transform, false);
+
+        GameObject lbController = new GameObject("_livingBirdsController");
+        lbController.transform.SetParent(birdsRoot.transform, false);
+        
+        lb_BirdController bc = lbController.AddComponent<lb_BirdController>();
+        bc.idealNumberOfBirds = 35;
+        bc.maximumNumberOfBirds = 50;
+        bc.birdScale = 2f; // Kuslarin VR'da rahat gorunmesi icin gozle karar bir buyutme
+        bc.unspawnDistance = 5000f; // Onemli: mesafe kisa olursa kuslar ciktigi gibi silinir
+        bc.collideWithObjects = true;
+        bc.highQuality = true;
+
+        // Script will automatically handle Instantiation at Start() during Play Mode.
+    }
+}
+
+public class AnimalWander : MonoBehaviour
+{
+    private Vector3 startPos;
+    public float wanderRadius = 15f;
+    public float moveSpeed = 1.0f;
+    public float turnSpeed = 45f;
+    public bool isBird = false;
+    
+    private float changeDirTimer;
+    private float targetYRot;
+
+    void Start()
+    {
+        startPos = transform.position;
+        targetYRot = transform.eulerAngles.y;
+    }
+
+    void Update()
+    {
+        changeDirTimer -= Time.deltaTime;
+        
+        Vector3 offset = transform.position - startPos;
+        offset.y = 0;
+        
+        if (offset.magnitude > wanderRadius)
+        {
+            Vector3 dirToCenter = -offset.normalized;
+            targetYRot = Mathf.Atan2(dirToCenter.x, dirToCenter.z) * Mathf.Rad2Deg;
+            changeDirTimer = 3f;
+        }
+        else if (changeDirTimer <= 0)
+        {
+            targetYRot += Random.Range(-90f, 90f);
+            changeDirTimer = Random.Range(2f, 5f);
+        }
+
+        float currentY = transform.eulerAngles.y;
+        float newY = Mathf.MoveTowardsAngle(currentY, targetYRot, turnSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.Euler(0, newY, 0);
+
+        transform.Translate(Vector3.forward * moveSpeed * Time.deltaTime, Space.Self);
+
+        if (!isBird && Terrain.activeTerrain != null)
+        {
+            Vector3 p = transform.position;
+            p.y = Terrain.activeTerrain.SampleHeight(p) + Terrain.activeTerrain.transform.position.y;
+            transform.position = p;
+        }
     }
 }

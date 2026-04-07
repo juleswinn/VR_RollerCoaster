@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 50fac519d414a8e4aaf22ed9d3700875
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 9406
+  packageName: Ski Boats
+  packageVersion: 1.0
+  assetPath: Assets/boats/textures/Materials/cubemaps/boatGlow.cubemap
+  uploadId: 74500

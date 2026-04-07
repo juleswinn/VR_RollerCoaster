@@ -9,8 +9,8 @@ public class CoasterStationQueueBuilder : MonoBehaviour
 
     [Header("Station")]
     [SerializeField, Range(0f, 1f)] private float stationT = 0.0f;
-    [SerializeField] private Vector3 stationPlatformSize = new Vector3(28f, 0.6f, 18f);
-    [SerializeField] private float stationOffsetToSide = 8f;
+    [SerializeField] private Vector3 stationPlatformSize = new Vector3(32f, 0.7f, 75f);
+    [SerializeField] private float stationOffsetToSide = 22f;
     [SerializeField] private float stationRoofHeight = 5f;
 
     [Header("Queue")]
@@ -51,22 +51,57 @@ public class CoasterStationQueueBuilder : MonoBehaviour
         ClearChildren(stationRoot);
 
         EvaluateFrame(out Vector3 stationPos, out Vector3 stationForward, out Vector3 stationUp, out Vector3 stationRight);
-        Vector3 sideOffset = stationRight * stationOffsetToSide;
+        
+        // --- FIX: İstasyonun yamuk (eğik) durmaması için istasyonun yukarı yönünü yerçekimine paralel (Vector3.up) yapıyoruz.
+        Vector3 levelUp = Vector3.up;
+        Vector3 levelForward = Vector3.ProjectOnPlane(stationForward, levelUp).normalized;
+        Vector3 levelRight = Vector3.Cross(levelUp, levelForward).normalized;
+        
+        // --- SOL TARAF: -levelRight kullanarak istasyonu sola alıyoruz ---
+        // --- SOL TARAF: -levelRight kullanarak istasyonu sola alıyoruz ---
+        Vector3 sideOffset = -levelRight * stationOffsetToSide;
 
-        GameObject platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        platform.name = "BoardingPlatform";
-        platform.transform.SetParent(stationRoot, true);
-        platform.transform.position = stationPos + sideOffset - stationUp * 0.35f;
-        platform.transform.rotation = Quaternion.LookRotation(stationForward, stationUp);
-        platform.transform.localScale = stationPlatformSize;
-        SetColor(platform, new Color(0.55f, 0.55f, 0.55f));
+#if UNITY_EDITOR
+        // --- GEUNGNAKGANG STATION PREFAB ---
+        string stationPath = "Assets/Gwangju_3D asset/02_GeungnakgangStation/Prefabs/GeungnakganStation.prefab";
+        GameObject stationPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(stationPath);
 
-        BuildStationRoof(stationRoot, stationPos + sideOffset, stationForward, stationUp);
+        if (stationPrefab != null)
+        {
+            GameObject stationInstance = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(stationPrefab, stationRoot);
+            stationInstance.name = "GeungnakgangStation";
+            // İstasyonu rayın soluna ve zemine yerleştir. (Ray düzleminden -0.5f aşağıda)
+            stationInstance.transform.position = stationPos + sideOffset - levelUp * 0.5f - levelForward * 15f; 
+            // Ray yönüne dik (90 derece) bakacak şekilde döndür.
+            stationInstance.transform.rotation = Quaternion.LookRotation(levelForward, levelUp) * Quaternion.Euler(0, 90f, 0);
+            stationInstance.transform.localScale = Vector3.one * 1.7f;
+            
+            // Taban (Platform) Prefab
+            string basePath = "Assets/Gwangju_3D asset/02_GeungnakgangStation/Prefabs/Geungnakgang_Base.prefab";
+            GameObject basePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath);
+            if (basePrefab != null)
+            {
+                GameObject baseInstance = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(basePrefab, stationInstance.transform);
+                baseInstance.transform.localPosition = Vector3.zero;
+                baseInstance.transform.localRotation = Quaternion.identity;
+            }
+        }
+        else
+        {
+            // Fallback platform
+            GameObject platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            platform.name = "BoardingPlatform_Fallback";
+            platform.transform.SetParent(stationRoot, true);
+            platform.transform.position = stationPos + sideOffset - levelUp * 0.35f;
+            platform.transform.rotation = Quaternion.LookRotation(levelForward, levelUp);
+            platform.transform.localScale = stationPlatformSize;
+            SetColor(platform, new Color(0.55f, 0.55f, 0.55f));
+        }
+#endif
 
-        BuildStationWalls(stationRoot, stationPos + sideOffset, stationForward, stationRight, stationUp);
-
-        Vector3 queueOrigin = stationPos + sideOffset + stationForward * (stationPlatformSize.z * 0.5f + 2f);
-        Quaternion queueRotation = Quaternion.LookRotation(stationForward, stationUp);
+        // Kuyruk ve Kapı Konumları (İstasyonun platformu üzerinde hizalı)
+        Vector3 queueOrigin = stationPos + sideOffset + levelForward * (stationPlatformSize.z * 0.35f);
+        Quaternion queueRotation = Quaternion.LookRotation(levelForward, levelUp);
 
         GameObject queueRoot = new GameObject("QueueLanes");
         queueRoot.transform.SetParent(stationRoot, true);
@@ -74,18 +109,56 @@ public class CoasterStationQueueBuilder : MonoBehaviour
         queueRoot.transform.rotation = queueRotation;
 
         BuildQueueFloor(queueRoot.transform);
-
         BuildQueueLanes(queueRoot.transform);
+        BuildTurnstiles(stationRoot, queueOrigin, levelForward, levelRight, levelUp);
 
-        BuildTurnstiles(stationRoot, queueOrigin, stationForward, stationRight, stationUp);
-
+        // İstasyon Giriş Kapısı (Kırmızı Panel)
         GameObject gate = GameObject.CreatePrimitive(PrimitiveType.Cube);
         gate.name = "StationGate";
         gate.transform.SetParent(stationRoot, true);
-        gate.transform.position = stationPos + sideOffset - stationForward * (stationPlatformSize.z * 0.25f) + Vector3.up * 1f;
-        gate.transform.rotation = Quaternion.LookRotation(stationForward, stationUp);
-        gate.transform.localScale = new Vector3(3.2f, 2.5f, 0.15f);
-        SetColor(gate, new Color(0.6f, 0.15f, 0.15f));
+        // Kapıyı istasyonun daha ilerisine, biniş noktasına yakın koyuyoruz
+        gate.transform.position = stationPos + sideOffset + levelForward * (stationPlatformSize.z * 0.15f) + levelUp * 1.25f;
+        gate.transform.rotation = Quaternion.LookRotation(levelForward, levelUp);
+        gate.transform.localScale = new Vector3(4f, 3f, 0.25f);
+        SetColor(gate, new Color(0.65f, 0.12f, 0.12f));
+
+        SpawnStationNPCs(stationRoot, stationPos + sideOffset, levelForward, levelRight, levelUp);
+    }
+
+    private void SpawnStationNPCs(Transform root, Vector3 center, Vector3 forward, Vector3 right, Vector3 up)
+    {
+#if UNITY_EDITOR
+        string[] npcPaths = {
+            "Assets/npc_casual_set_00/Prefabs/npc_hmn_01m.prefab",
+            "Assets/npc_casual_set_00/Prefabs/npc_hmn_01f.prefab"
+        };
+        
+        for (int i = 0; i < 3; i++)
+        {
+            string p = npcPaths[i % 2];
+            GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p);
+            if (prefab == null) continue;
+
+            GameObject npc = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root);
+            npc.name = "Station_Passenger_" + i;
+            
+            // Platform üzerinde rastgele ama mantıklı dağıtım
+            float fwdOff = (i - 1) * 8f; 
+            float sideOff = UnityEngine.Random.Range(-2f, 2f);
+            
+            npc.transform.position = center + forward * fwdOff + right * sideOff + up * 0.1f;
+            npc.transform.rotation = Quaternion.LookRotation(-right, up) * Quaternion.Euler(0, UnityEngine.Random.Range(-30f, 30f), 0);
+            npc.transform.localScale = Vector3.one; // Scripted models usually 1:1
+            
+            // Pink material fix
+            var rends = npc.GetComponentsInChildren<Renderer>();
+            foreach(var r in rends) {
+                if (r.sharedMaterial != null && r.sharedMaterial.shader.name.Contains("Standard")) {
+                    r.sharedMaterial.shader = Shader.Find("Universal Render Pipeline/Lit");
+                }
+            }
+        }
+#endif
     }
 
     private void BuildStationRoof(Transform root, Vector3 center, Vector3 forward, Vector3 up)

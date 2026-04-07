@@ -29,6 +29,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     [SerializeField] private GameObject[] customRockPrefabs;
     [SerializeField] private GameObject[] customBushPrefabs;
     [SerializeField] private GameObject[] customCoasterAnimalPrefabs;
+    [SerializeField] private GameObject[] customNPCPrefabs;
 
     [Header("Trees")]
     [SerializeField, Min(0)] private int treeCount = 10000;
@@ -82,6 +83,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         if (buildRollerCoasterAnimals) CreateRollerCoasterAnimals();
         CreateGardenProps();
         SpawnLivingBirdsController();
+        CreateAmbientAircraft(); // Yeni uçaklar eklendi
+        SpawnFighterFlybys();    // Savaş uçakları ve yakın geçişler
 
         // Bulutlar KAPALI - mevcut varsa temizle
         {
@@ -102,47 +105,17 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     private void AutoAssignAssets()
     {
         // --- AGACLAR: Sadece dogal / gercekci renkli assetler ---
-        // MysticForge BasicTree ve Pine Trees TAMAMEN KALDIRILDI (rengarenk, kartun gorunumu)
         var trees = new List<GameObject>();
 
-        // Forest Pack agaclari – PRIMARY (dogal yesil tonlar, URP uyumlu)
-        string[] forestTreePaths = new string[]
+        // Nature Starter Kit 2 ağaçları
+        string[] nskTreePaths = new string[]
         {
-            "Assets/Forest Pack/Prefabs/Tree001_V1.prefab",
-            "Assets/Forest Pack/Prefabs/Tree001_V2.prefab",
-            "Assets/Forest Pack/Prefabs/Tree002_V1.prefab",
-            "Assets/Forest Pack/Prefabs/Tree002_V2.prefab",
-            "Assets/Forest Pack/Prefabs/Tree003_V1.prefab",
-            "Assets/Forest Pack/Prefabs/Tree003_V2.prefab",
-            "Assets/Forest Pack/Prefabs/Tree004_V1.prefab",
-            "Assets/Forest Pack/Prefabs/Tree004_V2.prefab",
-            "Assets/Forest Pack/Prefabs/Tree004_V3.prefab",
-            "Assets/Forest Pack/Prefabs/Tree004_V4.prefab",
-            "Assets/Forest Pack/Prefabs/Tree004_V5.prefab",
-            "Assets/Forest Pack/Prefabs/Tree004_V6.prefab",
-            "Assets/Forest Pack/Prefabs/Tree005_V1.prefab",
-            "Assets/Forest Pack/Prefabs/Tree005_V2.prefab",
+            "Assets/NatureStarterKit2/Nature/tree01.prefab",
+            "Assets/NatureStarterKit2/Nature/tree02.prefab",
+            "Assets/NatureStarterKit2/Nature/tree03.prefab",
+            "Assets/NatureStarterKit2/Nature/tree04.prefab"
         };
-        foreach (var p in forestTreePaths) { var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (t) trees.Add(t); }
-
-        // Nicrom LPW Trees – SECONDARY (ruzgar animasyonlu, URP dostu, dogal yesil)
-        string[] nicromPaths = new string[]
-        {
-            "Assets/Nicrom/Shaders/Wind/Prefabs/LPW_Tree_A1_6.5m_01.prefab",
-            "Assets/Nicrom/Shaders/Wind/Prefabs/LPW_Tree_B1_9m_01.prefab",
-            "Assets/Nicrom/Shaders/Wind/Prefabs/LPW_Tree_B1_9m_02.prefab",
-            "Assets/Nicrom/Shaders/Wind/Prefabs/LPW_Tree_C1_11m_01.prefab",
-            "Assets/Nicrom/Shaders/Wind/Prefabs/LPW_Tree_C1_9m_01.prefab"
-        };
-        foreach (var p in nicromPaths) { var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (t) trees.Add(t); }
-
-        // Tree9 – TERTIARY (dokulu, gercekci gorunum)
-        string[] tree9Paths = new string[]
-        {
-            "Assets/Tree9/Tree9_2.prefab", "Assets/Tree9/Tree9_3.prefab",
-            "Assets/Tree9/Tree9_4.prefab", "Assets/Tree9/Tree9_5.prefab"
-        };
-        foreach (var p in tree9Paths) { var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (t) trees.Add(t); }
+        foreach (var p in nskTreePaths) { var t = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (t) trees.Add(t); }
 
         if (trees.Count > 0) customTreePrefabs = trees.ToArray();
 
@@ -151,10 +124,9 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         var goat = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UrsaAnimation/LOW POLY CUBIC - Goat and Sheep Pack/Prefabs_URP/SK_Goat_dark.prefab");
         var sheep = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UrsaAnimation/LOW POLY CUBIC - Goat and Sheep Pack/Prefabs_URP/SK_Sheep_white.prefab");
         var deer = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Backrock Studios/LowPoly-Animals/Prefabs/Deer/Deer_v1.prefab");
-        var horse = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Backrock Studios/LowPoly-Animals/Prefabs/Horse/Horse_v1.prefab");
         var pa = new List<GameObject>();
         if (butterfly) pa.Add(butterfly); if (goat) pa.Add(goat); if (sheep) pa.Add(sheep);
-        if (deer) pa.Add(deer); if (horse) pa.Add(horse);
+        if (deer) pa.Add(deer);
         if (pa.Count > 0) customAnimalPrefabs = pa.ToArray();
 
         // --- ROLLER COASTER HAYVANLARI (ithappy Animals_FREE) ---
@@ -163,7 +135,6 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             "Assets/ithappy/Animals_FREE/Prefabs/Chicken_001.prefab",
             "Assets/ithappy/Animals_FREE/Prefabs/Deer_001.prefab",
             "Assets/ithappy/Animals_FREE/Prefabs/Dog_001.prefab",
-            "Assets/ithappy/Animals_FREE/Prefabs/Horse_001.prefab",
             "Assets/ithappy/Animals_FREE/Prefabs/Kitty_001.prefab",
             "Assets/ithappy/Animals_FREE/Prefabs/Pinguin_001.prefab",
             "Assets/ithappy/Animals_FREE/Prefabs/Tiger_001.prefab"
@@ -171,6 +142,15 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         var ca = new List<GameObject>();
         foreach (var p in ithappyPaths) { var a = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (a) ca.Add(a); }
         if (ca.Count > 0) customCoasterAnimalPrefabs = ca.ToArray();
+        
+        // --- NPC CHARACTERS (npc_casual_set_00) ---
+        string[] npcPaths = new string[] {
+            "Assets/npc_casual_set_00/Prefabs/npc_hmn_01m.prefab", 
+            "Assets/npc_casual_set_00/Prefabs/npc_hmn_01f.prefab"
+        };
+        var nl = new List<GameObject>();
+        foreach (var p in npcPaths) { var n = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (n) nl.Add(n); }
+        if (nl.Count > 0) customNPCPrefabs = nl.ToArray(); // Artık ayrı diziye atanıyor, hayvanları EZMİYOR
 
         // --- LOW POLY FISH (Floreswa) ---
         string[] fishPaths = new string[]
@@ -241,7 +221,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         foreach (var p in bushPaths) { var b = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p); if (b) bl.Add(b); }
         if (bl.Count > 0) customBushPrefabs = bl.ToArray();
 
-        waterMaterial = null;
+        // Su materyali: URP uyumlu su shader'ı bul
+        if (waterMaterial == null)
+        {
+            waterMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Procedural Water Shader/Materials/Pool Water.mat");
+            if (waterMaterial == null)
+                waterMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Procedural Water Shader/Materials/Ocean Water.mat");
+        }
         if (skyboxMaterial == null)
         {
             var skyMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Fantasy Skybox FREE/Cubemaps/Classic/FS000_Day_01.mat");
@@ -263,7 +249,12 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         DynamicGI.UpdateEnvironment();
 
         Camera[] cams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
-        foreach(var c in cams) c.farClipPlane = 60000f;
+        foreach(var c in cams) {
+            c.farClipPlane = 60000f;
+            // Sarsıntı efektini kameraya ekle
+            if (c.gameObject.GetComponent<CoasterShakeEffect>() == null)
+                c.gameObject.AddComponent<CoasterShakeEffect>();
+        }
 
         Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
         foreach (var l in lights)
@@ -286,7 +277,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             "Assets/Floreswa", "Assets/ithappy", "Assets/HQP STUDIOS",
             "Assets/Low Poly Stones", "Assets/YughuesFreeBushes2018",
             "Assets/BackgroundMountainFree",
-            "Assets/Low Poly Tree Mega Pack by MysticForge"
+            "Assets/Low Poly Tree Mega Pack by MysticForge",
+            "Assets/NatureStarterKit2", "Assets/MamkinEnthusiast"
         };
         foreach (string folder in matFolders)
         {
@@ -302,10 +294,34 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     mat.shader = urpLit;
                     if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", mc);
                     if (mat.HasProperty("_BaseMap") && mtx != null) mat.SetTexture("_BaseMap", mtx);
+                    
+                    if (mat.name.ToLower().Contains("leaf") || mat.name.ToLower().Contains("branch") || 
+                        mat.name.ToLower().Contains("frond") || (mtx != null && !mat.name.ToLower().Contains("bark")))
+                    {
+                        mat.SetFloat("_AlphaClip", 1f);
+                        mat.SetFloat("_Cutoff", 0.35f);
+                        mat.EnableKeyword("_ALPHATEST_ON");
+                    }
                     UnityEditor.EditorUtility.SetDirty(mat);
                 }
             }
         }
+
+        // Ensure lb_groundTarget tag exists for birds
+        UnityEditor.SerializedObject tagManager = new UnityEditor.SerializedObject(UnityEditor.AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+        UnityEditor.SerializedProperty tagsProp = tagManager.FindProperty("tags");
+        bool foundTag = false;
+        for (int tj = 0; tj < tagsProp.arraySize; tj++)
+        {
+            if (tagsProp.GetArrayElementAtIndex(tj).stringValue == "lb_groundTarget") { foundTag = true; break; }
+        }
+        if (!foundTag)
+        {
+            tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
+            tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = "lb_groundTarget";
+            tagManager.ApplyModifiedProperties();
+        }
+
         UnityEditor.AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
@@ -382,10 +398,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         float safeRadius = treeSpawnRadius + 100f;
         float targetPeakHeight = 200f;
 
-        int ringCount = 26;
+        int ringCount = 18;
         for (int i = 0; i < ringCount; i++)
         {
-            float angle = (i * Mathf.PI * 2f / ringCount) + Random.Range(-0.10f, 0.10f);
+            float angle = (i * Mathf.PI * 2f / ringCount);
 
             GameObject prefab = customMountainPrefabs[Random.Range(0, customMountainPrefabs.Length)];
             if (prefab == null) continue;
@@ -397,16 +413,15 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             float meshHeight    = Mathf.Max(mb.size.y, 0.001f);
             float meshHalfWidth = Mathf.Max(mb.extents.x, mb.extents.z);
 
-            targetPeakHeight = 800f;
-
-            float scale = Mathf.Clamp(targetPeakHeight / meshHeight, 0.1f, 1500f);
+            targetPeakHeight = 500f;
+            float scale = Mathf.Clamp(targetPeakHeight / meshHeight, 0.1f, 800f);
 
             float halfWidthWorld = meshHalfWidth * scale;
-            float minDist = safeRadius + halfWidthWorld + 50f;
-            float dist = minDist + Random.Range(0f, 80f);
+            float dist = safeRadius + halfWidthWorld + 150f;
 
             Vector3 pos = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-            pos.y = GetTerrainY(pos) - meshHeight * scale * 0.15f;
+            // Daha derine gömerek yerde yüzüyormuş veya boşluk varmış hissini yok et.
+            pos.y = GetTerrainY(pos) - meshHeight * scale * 0.45f;
 
             GameObject mountain;
 #if UNITY_EDITOR
@@ -416,42 +431,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 #endif
             mountain.transform.position = pos;
             mountain.transform.localScale = Vector3.one * scale;
-            mountain.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            FixPinkMaterials(mountain);
-        }
-
-        for (int i = 0; i < 12; i++)
-        {
-            float angle = Random.Range(0f, Mathf.PI * 2f);
-
-            GameObject prefab = customMountainPrefabs[Random.Range(0, customMountainPrefabs.Length)];
-            if (prefab == null) continue;
-
-            MeshFilter mf = prefab.GetComponentInChildren<MeshFilter>();
-            if (mf == null || mf.sharedMesh == null) continue;
-
-            Bounds mb = mf.sharedMesh.bounds;
-            float meshHeight    = Mathf.Max(mb.size.y, 0.001f);
-            float meshHalfWidth = Mathf.Max(mb.extents.x, mb.extents.z);
-
-            targetPeakHeight = 800f;
-            float scale = Mathf.Clamp(targetPeakHeight * 1.5f / meshHeight, 0.1f, 1500f);
-            float halfWidthWorld = meshHalfWidth * scale;
-            float minDist = safeRadius + halfWidthWorld + 100f;
-            float dist = minDist + Random.Range(50f, 150f);
-
-            Vector3 pos = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-            pos.y = GetTerrainY(pos) - meshHeight * scale * 0.20f;
-
-            GameObject mountain;
-#if UNITY_EDITOR
-            mountain = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
-#else
-            mountain = Instantiate(prefab, root.transform);
-#endif
-            mountain.transform.position = pos;
-            mountain.transform.localScale = Vector3.one * scale;
-            mountain.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            mountain.transform.rotation = Quaternion.Euler(0f, Random.Range(-20f, 20f), 0f);
             FixPinkMaterials(mountain);
         }
 
@@ -466,59 +446,70 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Transform existing = transform.Find("PrototypeTrees");
         if (existing != null) DestroyImmediate(existing.gameObject);
 
-        Transform terrainTransform = transform.Find("PrototypeTerrain");
-        if (terrainTransform == null) return;
-        Terrain terrain = terrainTransform.GetComponent<Terrain>();
-        if (terrain == null || terrain.terrainData == null) return;
-        
-        TerrainData td = terrain.terrainData;
-        
+        GameObject treesRoot = new GameObject("PrototypeTrees");
+        treesRoot.transform.SetParent(transform, false);
+
         bool hasCustom = customTreePrefabs != null && customTreePrefabs.Length > 0;
-        if (hasCustom)
-        {
-            TreePrototype[] prototypes = new TreePrototype[customTreePrefabs.Length];
-            for (int i = 0; i < customTreePrefabs.Length; i++)
-            {
-                prototypes[i] = new TreePrototype { prefab = customTreePrefabs[i] };
-            }
-            td.treePrototypes = prototypes;
-            terrain.Flush();
-        }
-        else return;
+        if (!hasCustom) return;
 
         List<Vector3> trackPoints = GetTrackExclusionPoints();
         Random.State saved = Random.state;
         Random.InitState(99);
-        
-        List<TreeInstance> treeInstances = new List<TreeInstance>();
-        Vector3 terrainPos = terrainTransform.position;
-        Vector3 terrainSizeVector = td.size;
 
-        for (int i = 0; i < treeCount; i++)
+        // Ormanlık Bölgeler (Forest Clusters) belirle
+        int clusterCount = 12;
+        Vector3[] clusters = new Vector3[clusterCount];
+        for (int i = 0; i < clusterCount; i++)
         {
-            float angle = Random.Range(0f, Mathf.PI * 2f);
-            float dist = Random.Range(55f, treeSpawnRadius);
-            Vector3 bp = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-            
+            float ca = Random.Range(0f, Mathf.PI * 2f);
+            float cd = Random.Range(100f, treeSpawnRadius * 0.7f);
+            clusters[i] = new Vector3(Mathf.Cos(ca) * cd, 0f, Mathf.Sin(ca) * cd);
+        }
+
+        // Ağaç boyutu gerçekçiliği için katsayı
+        float globalTreeScale = 2.5f;
+
+        // Hem rastgele hem de ormanlık bölgede ağaçlar
+        int spawnCount = hasCustom ? 2500 : 0; // Gameobject olduğu için sayıyı sınırlı tuttuk, ancak boyutlarını büyük tutarak alanı dolduracağız.
+        
+        for (int i = 0; i < spawnCount; i++)
+        {
+            Vector3 bp;
+            // %60 Ormanda, %40 Dağınık
+            if (Random.value < 0.6f && clusterCount > 0)
+            {
+                Vector3 cc = clusters[Random.Range(0, clusterCount)];
+                float ra = Random.Range(0f, Mathf.PI * 2f);
+                float rd = Random.Range(0f, 150f); // Orman yarıçapı
+                bp = cc + new Vector3(Mathf.Cos(ra) * rd, 0f, Mathf.Sin(ra) * rd);
+            }
+            else
+            {
+                float angle = Random.Range(0f, Mathf.PI * 2f);
+                float dist = Random.Range(55f, treeSpawnRadius);
+                bp = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
+            }
+
             if (new Vector2(bp.x, bp.z).magnitude < stationExclusionRadius) continue;
             if (IsNearTrack(bp, trackPoints, trackExclusionRadius)) continue;
 
-            float normalizedX = (bp.x - terrainPos.x) / terrainSizeVector.x;
-            float normalizedZ = (bp.z - terrainPos.z) / terrainSizeVector.z;
-            
-            treeInstances.Add(new TreeInstance
-            {
-                position = new Vector3(normalizedX, 0f, normalizedZ),
-                color = Color.white,
-                lightmapColor = Color.white,
-                prototypeIndex = Random.Range(0, customTreePrefabs.Length),
-                heightScale = Random.Range(0.8f, 1.4f),
-                widthScale = Random.Range(0.8f, 1.4f),
-                rotation = Random.Range(0f, Mathf.PI * 2f)
-            });
+            bp.y = GetTerrainY(bp);
+
+            GameObject prefab = customTreePrefabs[Random.Range(0, customTreePrefabs.Length)];
+            if (prefab == null) continue;
+
+            GameObject tree;
+#if UNITY_EDITOR
+            tree = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, treesRoot.transform);
+#else
+            tree = Instantiate(prefab, treesRoot.transform);
+#endif
+            tree.transform.position = bp;
+            float indScale = Random.Range(0.8f, 1.5f) * globalTreeScale;
+            tree.transform.localScale = prefab.transform.localScale * indScale;
+            tree.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         }
 
-        td.SetTreeInstances(treeInstances.ToArray(), true);
         Random.state = saved;
     }
 
@@ -536,14 +527,23 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Random.State saved = Random.state;
         Random.InitState(42);
         int placed = 0, attempts = 0;
-        GameObject[] flowerPrefabs = GetFlowerPrefabs();
-        
+
         while (placed < pondCount && attempts < pondCount * 15)
         {
             attempts++;
             float angle = Random.Range(0f, Mathf.PI * 2f);
             float dist = Random.Range(60f, pondSpawnRadius);
             float radius = Random.Range(pondMinRadius, pondMaxRadius);
+
+            Vector3 center = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
+            center.y = GetTerrainY(center) + pondYOffset;
+            Vector2 pos2D = new Vector2(center.x, center.z);
+            if (IsNearTrack(center, trackPts, trackExclusionRadius + radius)) continue;
+            if (pos2D.magnitude < stationExclusionRadius + radius) continue;
+
+            SpawnPond(pondsRoot.transform, center, radius, placed);
+            ScatterPondFlowers(pondsRoot.transform, center, radius);
+            placed++;
         }
         Random.state = saved;
     }
@@ -638,6 +638,19 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     //  CENTRAL FEATURE POND  –  Pistin hemen yanindaki buyuk golet
     //  Cok sayida balik, kaya kumesi, cali kumesi, karisik hayvanlar
     // ================================================================
+    public float megaLakeRadius = 310f;
+    private Vector3 GetMegaLakeCenter()
+    {
+        List<Vector3> pts = GetTrackExclusionPoints();
+        if (pts == null || pts.Count == 0) return new Vector3(80f, 0f, 150f);
+        Vector3 sum = Vector3.zero;
+        foreach (var p in pts) sum += p;
+        return sum / pts.Count;
+    }
+
+    // ================================================================
+    //  CENTRAL FEATURE POND  –  Pistin icini tamamen kaplayan tam devasa göl
+    // ================================================================
     private void CreateCentralFeaturePond()
     {
         Transform existing = transform.Find("CentralFeaturePond");
@@ -646,14 +659,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         GameObject root = new GameObject("CentralFeaturePond");
         root.transform.SetParent(transform, false);
 
-        // Merkez: pistten 50-70m uzaklikta, sag tarafa
-        Vector3 center = new Vector3(55f, 0f, 40f);
+        Vector3 center = GetMegaLakeCenter();
         center.y = GetTerrainY(center) + pondYOffset;
-        float radius = 45f; // Buyuk golet
+        float radius = megaLakeRadius; 
 
         root.transform.position = center;
 
-        // Su yuzeyi
+        // Su yuzeyi (Devasa)
         GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         water.name = "CentralWaterSurface";
         water.transform.SetParent(root.transform, false);
@@ -667,15 +679,31 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         rim.name = "CentralPondRim";
         rim.transform.SetParent(root.transform, false);
         rim.transform.localPosition = new Vector3(0f, 0.01f, 0f);
-        rim.transform.localScale = new Vector3(radius * 2.4f, 0.03f, radius * 2.4f);
+        rim.transform.localScale = new Vector3(radius * 2.05f, 0.03f, radius * 2.05f);
         SetColor(rim, new Color(0.12f, 0.36f, 0.11f));
         Object.DestroyImmediate(rim.GetComponent<Collider>());
 
-        // Baliklar (bol miktarda)
-        bool hasFish = customFishPrefabs != null && customFishPrefabs.Length > 0;
-        Random.State saved = Random.state;
-        Random.InitState(77);
-
+        // ── Alstra Infinite FishV1-4 Büyük Balıklar ──────────────────────
+#if UNITY_EDITOR
+        string[] polyFishPaths = {
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/FishV1.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/FishV2.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/FishV3.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/FishV4.prefab"
+        };
+        var polyFishPrefabs = new System.Collections.Generic.List<GameObject>();
+        foreach (var pp in polyFishPaths) {
+            var pf = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(pp);
+            if (pf) polyFishPrefabs.Add(pf);
+        }
+        // Yedek olarak eski balık paketini de kullan
+        bool hasPolyFish = polyFishPrefabs.Count > 0;
+        bool hasFallbackFish = customFishPrefabs != null && customFishPrefabs.Length > 0;
+        GameObject fishSplashPrefab =
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_Multiple.prefab") ??
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_A.prefab") ??
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Hit_01.prefab");
+#endif
         for (int i = 0; i < 12; i++)
         {
             float fa = Random.Range(0f, Mathf.PI * 2f);
@@ -684,154 +712,153 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             fp.y = GetTerrainY(fp) + 0.05f;
 
             GameObject fish = null;
-            if (hasFish)
+#if UNITY_EDITOR
+            if (hasPolyFish)
+            {
+                var prefab = polyFishPrefabs[Random.Range(0, polyFishPrefabs.Count)];
+                fish = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
+                // Büyük boyut: 3-5x
+                fish.transform.localScale = prefab.transform.localScale * Random.Range(3f, 5f);
+                fish.transform.rotation   = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                FixPinkMaterials(fish);
+            }
+            else if (hasFallbackFish)
             {
                 var prefab = customFishPrefabs[Random.Range(0, customFishPrefabs.Length)];
-                if (prefab != null)
-                {
-#if UNITY_EDITOR
-                    fish = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
-#else
-                    fish = Instantiate(prefab, root.transform);
-#endif
-                    fish.transform.localScale = prefab.transform.localScale * Random.Range(0.3f, 0.65f);
-                    fish.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                }
+                fish = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
+                fish.transform.localScale = prefab.transform.localScale * Random.Range(2.5f, 4f);
+                fish.transform.rotation   = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             }
+#else
+            if (hasFallbackFish)
+            {
+                var prefab = customFishPrefabs[Random.Range(0, customFishPrefabs.Length)];
+                fish = Instantiate(prefab, root.transform);
+                fish.transform.localScale = prefab.transform.localScale * Random.Range(2.5f, 4f);
+            }
+#endif
             if (fish == null)
             {
                 fish = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 fish.name = "FishPrimitive";
                 fish.transform.SetParent(root.transform, true);
-                fish.transform.localScale = new Vector3(0.5f, 0.3f, 1.1f);
+                fish.transform.localScale = new Vector3(1.2f, 0.7f, 2.5f);
                 SetColor(fish, new Color(0.2f, 0.6f, 0.9f));
                 Object.DestroyImmediate(fish.GetComponent<Collider>());
             }
             fish.transform.position = fp;
+
             var jumper = fish.AddComponent<JumpingFish>();
-            jumper.jumpHeight = Random.Range(1.5f, 3.5f);
-            jumper.jumpDistance = Random.Range(2f, 6f);
-            jumper.jumpIntervalMin = Random.Range(0.8f, 2.5f);
-            jumper.jumpIntervalMax = Random.Range(3f, 7f);
-        }
-
-        // Kaya kumeleri (3 kume, golet etrafinda)
-        bool hasRocks = customRockPrefabs != null && customRockPrefabs.Length > 0;
-        if (hasRocks)
-        {
-            for (int c = 0; c < 4; c++)
-            {
-                float ca = (c * Mathf.PI * 0.5f) + Random.Range(-0.3f, 0.3f);
-                float cd = radius * Random.Range(0.95f, 1.4f);
-                Vector3 cc = center + new Vector3(Mathf.Cos(ca) * cd, 0f, Mathf.Sin(ca) * cd);
-                for (int r = 0; r < Random.Range(4, 8); r++)
-                {
-                    float ra = Random.Range(0f, Mathf.PI * 2f);
-                    float rd = Random.Range(0.5f, 5f);
-                    Vector3 rp = cc + new Vector3(Mathf.Cos(ra) * rd, 0f, Mathf.Sin(ra) * rd);
-                    rp.y = GetTerrainY(rp) + 0.02f;
-                    var prefab = customRockPrefabs[Random.Range(0, customRockPrefabs.Length)];
-                    if (prefab == null) continue;
-                    GameObject rock;
+            jumper.jumpHeight               = Random.Range(5f, 10f);   // Büyük atlama
+            jumper.jumpDistance             = Random.Range(8f, 15f);
+            jumper.jumpIntervalMin          = Random.Range(5f, 9f);
+            jumper.jumpIntervalMax          = Random.Range(10f, 18f);
+            jumper.cinematicHeightMultiplier  = 3.5f;
+            jumper.cinematicDistanceMultiplier = 2.5f;
+            jumper.coasterTriggerDistance   = 75f;
+            jumper.burstJumpCount           = 5;
+            jumper.burstJumpDelay           = 0.5f;
+            jumper.burstCooldown            = 14f;
 #if UNITY_EDITOR
-                    rock = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
-#else
-                    rock = Instantiate(prefab, root.transform);
+            jumper.splashFXPrefab = fishSplashPrefab;
 #endif
-                    rock.transform.position = rp;
-                    rock.transform.rotation = Quaternion.Euler(Random.Range(-5f, 5f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
-                    float rockScale = (r == 0) ? Random.Range(1.2f, 2.0f) : Random.Range(0.3f, 1.1f);
-                    rock.transform.localScale = prefab.transform.localScale * rockScale;
-                }
-            }
         }
 
-        // Cali kumeleri (golet etrafinda)
-        bool hasBushes = customBushPrefabs != null && customBushPrefabs.Length > 0;
-        if (hasBushes)
+        Random.State saved = Random.state;
+        Random.InitState(77);
+
+#if UNITY_EDITOR
+        // ── Tekne Splash + Wake prefabları ─────────────────────────────
+        GameObject boatSplashPrefab =
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_B.prefab") ??
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_A.prefab");
+        GameObject boatWakePrefab =
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Bubbles_Vertical_Loop.prefab");
+
+        // ── Alstra Infinite Tekneler ──────────────────────────────────
+        var boatPrefabList = new System.Collections.Generic.List<GameObject>();
+        string[] boatPaths = {
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/Speed_Boat.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/Scout_Boat.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/Fisher_Boat.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/1.2 Version/Speed_Boat.prefab",
+            "Assets/Alstra Infinite/Boats LowPoly/Prefabs/1.2 Version/Scout_Boat.prefab"
+        };foreach(var bp in boatPaths) { var b = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(bp); if(b) boatPrefabList.Add(b); }
+        
+        // NPC'leri customNPCPrefabs'ten al (artık customAnimalPrefabs'i ezmiyor)
+        var npcPrefabList = new List<GameObject>();
+        if (customNPCPrefabs != null && customNPCPrefabs.Length > 0)
         {
-            for (int c = 0; c < 5; c++)
+            npcPrefabList.AddRange(customNPCPrefabs);
+        }
+        else
+        {
+            string[] npcBoatPaths = {
+                "Assets/npc_casual_set_00/Prefabs/npc_csl_00_character_01m_01.prefab",
+                "Assets/npc_casual_set_00/Prefabs/npc_csl_00_character_01f_01.prefab",
+                "Assets/npc_casual_set_00/Prefabs/npc_csl_00_character_02m_01.prefab",
+                "Assets/npc_casual_set_00/Prefabs/npc_csl_00_character_02f_01.prefab"
+            };
+            foreach (var np in npcBoatPaths) { var n = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(np); if (n) npcPrefabList.Add(n); }
+        }
+
+        if (boatPrefabList.Count > 0)
+        {
+            int boatCount = 15;
+            for (int i = 0; i < boatCount; i++)
             {
                 float ba = Random.Range(0f, Mathf.PI * 2f);
-                float bd = radius * Random.Range(1.05f, 1.8f);
-                Vector3 bc = center + new Vector3(Mathf.Cos(ba) * bd, 0f, Mathf.Sin(ba) * bd);
-                for (int b = 0; b < Random.Range(3, 6); b++)
-                {
-                    float bra = Random.Range(0f, Mathf.PI * 2f);
-                    float brd = Random.Range(0.3f, 3.5f);
-                    Vector3 bp = bc + new Vector3(Mathf.Cos(bra) * brd, 0f, Mathf.Sin(bra) * brd);
-                    bp.y = GetTerrainY(bp) + 0.02f;
-                    var prefab = customBushPrefabs[Random.Range(0, customBushPrefabs.Length)];
-                    if (prefab == null) continue;
-                    GameObject bush;
-#if UNITY_EDITOR
-                    bush = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
-#else
-                    bush = Instantiate(prefab, root.transform);
-#endif
-                    bush.transform.position = bp;
-                    bush.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                    bush.transform.localScale = prefab.transform.localScale * Random.Range(0.8f, 1.6f);
-                }
-            }
-        }
+                float bd = Random.Range(20f, radius * 0.85f);
+                Vector3 boatPos = center + new Vector3(Mathf.Cos(ba) * bd, 0f, Mathf.Sin(ba) * bd);
+                boatPos.y = GetTerrainY(boatPos) + 0.15f;
+                
+                GameObject boatPrefab = boatPrefabList[Random.Range(0, boatPrefabList.Count)];
+                GameObject boatObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(boatPrefab, root.transform);
+                boatObj.transform.position = boatPos;
+                boatObj.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+                float boatScale = Random.Range(2.5f, 3.5f);
+                boatObj.transform.localScale = boatPrefab.transform.localScale * boatScale;
+                FixPinkMaterials(boatObj);
 
-        // Karisik hayvanlar golet etrafinda (farkli turler farkli yerlerde)
-        bool hasAnimals = customAnimalPrefabs != null && customAnimalPrefabs.Length > 0;
-        if (hasAnimals)
-        {
-            int animalCount = 14;
-            for (int i = 0; i < animalCount; i++)
-            {
-                float aa = (i * Mathf.PI * 2f / animalCount) + Random.Range(-0.2f, 0.2f);
-                float ad = radius + Random.Range(2f, 18f);
-                Vector3 ap = center + new Vector3(Mathf.Cos(aa) * ad, 0f, Mathf.Sin(aa) * ad);
-                ap.y = GetTerrainY(ap);
+                // --- RollerCoasterBoatAI Bağla ---
+                var boatAI = boatObj.AddComponent<RollerCoasterBoatAI>();
+                boatAI.lakeCenter = center;
+                boatAI.patrolRadius = radius * 0.82f;
+                boatAI.normalSpeed = Random.Range(3f, 6f);
+                boatAI.burstSpeed = Random.Range(14f, 22f);
+                boatAI.coasterReactDistance = 90f;
+                boatAI.splashPrefab         = boatSplashPrefab;
+                boatAI.wakePrefab           = boatWakePrefab;
+                boatAI.waterY               = center.y + 0.15f;
 
-                // Her 4 hayvanda bir kelebek, geri kalani buyuk hayvan
-                bool butterfly = (i % 4 == 0);
-                int idx = Random.Range(0, customAnimalPrefabs.Length);
-                if (butterfly)
+                // --- NPC ölçeği: SABIT KÜÇÜK BOYUT ---
+                // Not: Bounds world-space'te hesaplanınca boatScale çarpanı boyutu şişiriyordu.
+                // Şimdi localScale üzerinden küçük sabit ölçek atıyoruz.
+                if (npcPrefabList.Count > 0)
                 {
-                    for (int pp = 0; pp < customAnimalPrefabs.Length; pp++)
-                        if (customAnimalPrefabs[pp] != null && customAnimalPrefabs[pp].name.Contains("Butterfly"))
-                        { idx = pp; break; }
-                }
-                else
-                {
-                    for (int tries = 0; tries < 5; tries++)
+                    int npcCount = Random.Range(1, 3);
+                    for (int n = 0; n < npcCount; n++)
                     {
-                        int cand = Random.Range(0, customAnimalPrefabs.Length);
-                        if (customAnimalPrefabs[cand] != null && !customAnimalPrefabs[cand].name.Contains("Butterfly"))
-                        { idx = cand; break; }
+                        GameObject npcPrefab = npcPrefabList[Random.Range(0, npcPrefabList.Count)];
+                        GameObject npcObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(npcPrefab, boatObj.transform);
+
+                        // Professional Human Scale: Since character models are around 1.8m,
+                        // and the boat is scaled by 3x, we divide by boatScale to get 1:1 world scale.
+                        float humanScale = 1.0f / boatScale; 
+                        npcObj.transform.localScale = Vector3.one * humanScale;
+
+                        // Tekne gövdesinin üstünde konumla (local coords)
+                        float npcOffsetX = (n - (npcCount - 1) * 0.5f) * 0.15f;
+                        npcObj.transform.localPosition = new Vector3(npcOffsetX, 0.25f, 0f); // Yükseltildi
+                        npcObj.transform.localRotation = Quaternion.Euler(0, Random.Range(-20f, 20f), 0);
+                        FixPinkMaterials(npcObj);
                     }
                 }
-
-                var prefab = customAnimalPrefabs[idx];
-                if (prefab == null) continue;
-                GameObject animal;
-#if UNITY_EDITOR
-                animal = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, root.transform);
-#else
-                animal = Instantiate(prefab, root.transform);
-#endif
-                bool isBfly = prefab.name.Contains("Butterfly") || prefab.name.Contains("fly");
-                if (isBfly)
-                {
-                    animal.transform.localScale = Vector3.one * Random.Range(0.006f, 0.018f);
-                    ap.y += Random.Range(0.5f, 2.5f);
-                    animal.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                }
-                else
-                {
-                    animal.transform.localScale = Vector3.one * Random.Range(0.8f, 1.2f);
-                    ap.y += 0.1f;
-                    Vector3 look = center - ap; look.y = 0f;
-                    if (look != Vector3.zero) animal.transform.rotation = Quaternion.LookRotation(look);
-                }
-                animal.transform.position = ap;
             }
         }
+#endif
+
+    // Remove old stones, trees and animals around the mega lake. They will spawn on the outside instead utilizing IsNearTrack automatically.
 
         Random.state = saved;
     }
@@ -942,13 +969,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     bool isBfly = prefab.name.Contains("Butterfly") || prefab.name.Contains("fly");
                     if (isBfly)
                     {
-                        animal.transform.localScale = Vector3.one * Random.Range(0.006f, 0.018f);
+                        animal.transform.localScale = Vector3.one * Random.Range(0.015f, 0.035f);
                         ap.y += Random.Range(0.5f, 2.5f);
                         animal.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                     }
                     else
                     {
-                        animal.transform.localScale = Vector3.one * Random.Range(0.8f, 1.2f);
+                        animal.transform.localScale = prefab.transform.localScale * Random.Range(1.8f, 2.8f);
                         ap.y += 0.1f;
                         Vector3 look = pondCenter - ap; look.y = 0f;
                         if (look != Vector3.zero) animal.transform.rotation = Quaternion.LookRotation(look);
@@ -1068,6 +1095,11 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             float sideDist = Random.Range(12f, 30f);
             Vector3 pos = trackPt + new Vector3(Mathf.Cos(sideAngle) * sideDist, 0f, Mathf.Sin(sideAngle) * sideDist);
             pos.y = GetTerrainY(pos);
+            
+            Vector3 dirToLake = (pos - GetMegaLakeCenter()).normalized;
+            pos += dirToLake * 10f;
+            pos.y = GetTerrainY(pos);
+
             if (IsNearTrack(pos, trackPts, trackExclusionRadius)) continue;
             if (new Vector2(pos.x, pos.z).magnitude < stationExclusionRadius) continue;
 
@@ -1081,7 +1113,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 #endif
             animal.transform.position = pos + Vector3.up * 0.1f;
             animal.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            animal.transform.localScale = prefab.transform.localScale * Random.Range(0.8f, 1.3f);
+            animal.transform.localScale = prefab.transform.localScale * Random.Range(1.8f, 2.8f); // Boyutlar çok daha büyük!
             animal.AddComponent<AnimalWander>();
             placed++;
         }
@@ -1246,7 +1278,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Renderer[] renderers = obj.GetComponentsInChildren<Renderer>(true);
         foreach (var r in renderers)
         {
-            Material[] mats = r.materials;
+            Material[] mats = r.sharedMaterials;
             bool changed = false;
             for (int i = 0; i < mats.Length; i++)
             {
@@ -1264,13 +1296,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 if (mats[i].HasProperty("_MainTex")) tex = mats[i].GetTexture("_MainTex");
                 if (tex == null && mats[i].HasProperty("_BaseMap")) tex = mats[i].GetTexture("_BaseMap");
 
-                Material fm = new Material(urpLit);
-                if (fm.HasProperty("_BaseColor")) fm.SetColor("_BaseColor", col);
-                if (tex != null && fm.HasProperty("_BaseMap")) fm.SetTexture("_BaseMap", tex);
-                mats[i] = fm;
+                // In-place shader değiştir — yeni materyal YARATMA (bellek tasarrufu)
+                mats[i].shader = urpLit;
+                if (mats[i].HasProperty("_BaseColor")) mats[i].SetColor("_BaseColor", col);
+                if (tex != null && mats[i].HasProperty("_BaseMap")) mats[i].SetTexture("_BaseMap", tex);
                 changed = true;
             }
-            if (changed) r.materials = mats;
+            if (changed) r.sharedMaterials = mats;
         }
     }
 
@@ -1283,6 +1315,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
     private bool IsNearTrack(Vector3 pos, List<Vector3> trackPoints, float minDist)
     {
+        Vector3 lakeCenter = GetMegaLakeCenter();
+        if (Vector2.Distance(new Vector2(pos.x, pos.z), new Vector2(lakeCenter.x, lakeCenter.z)) < megaLakeRadius)
+            return true; // Devasa göletin alanına denk geliyorsa "piste çok yakınmış gibi" engelleyerek hiçbir prop'un doğmamasını sağla.
+
         float minSqr = minDist * minDist;
         for (int i = 0; i < trackPoints.Count; i++)
         {
@@ -1354,6 +1390,238 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         // Script will automatically handle Instantiation at Start() during Play Mode.
     }
+
+    private void ScatterPondFlowers(Transform parent, Vector3 center, float radius)
+    {
+#if UNITY_EDITOR
+        string flowerPath = "Assets/Patchmesh/Free Sample Stylized Hand-Painted Plant & Flower Pack/Prefabs";
+        if (!UnityEditor.AssetDatabase.IsValidFolder(flowerPath)) return;
+        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:Prefab", new[] { flowerPath });
+        if (guids.Length == 0) return;
+
+        List<GameObject> prefabs = new List<GameObject>();
+        foreach (string guid in guids)
+        {
+            GameObject p = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                UnityEditor.AssetDatabase.GUIDToAssetPath(guid));
+            if (p != null) prefabs.Add(p);
+        }
+        if (prefabs.Count == 0) return;
+
+        int flowerCount = Random.Range(15, 30);
+        for (int i = 0; i < flowerCount; i++)
+        {
+            float fa = Random.Range(0f, Mathf.PI * 2f);
+            float fd = radius + Random.Range(2f, 15f);
+            Vector3 fpos = center + new Vector3(Mathf.Cos(fa) * fd, 0, Mathf.Sin(fa) * fd);
+            fpos.y = GetTerrainY(fpos);
+            GameObject prefab = prefabs[Random.Range(0, prefabs.Count)];
+            GameObject f = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, parent);
+            f.transform.position = fpos;
+            f.transform.rotation = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            f.transform.localScale = Vector3.one * Random.Range(1.8f, 3.5f);
+        }
+#endif
+    }
+
+    private void CreateGardenProps()
+    {
+#if UNITY_EDITOR
+        string propPath = "Assets/MamkinEnthusiast/3D Mini Garden Props/Prefabs";
+        if (!UnityEditor.AssetDatabase.IsValidFolder(propPath)) return;
+
+        GameObject GetPrefab(string name)
+        {
+            string tp = propPath + "/" + name + ".prefab";
+            return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(tp);
+        }
+
+        GameObject fencePrefab = GetPrefab("Fence");
+        if (fencePrefab == null) return;
+
+        Transform existing = transform.Find("GardenProps");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+        GameObject root = new GameObject("GardenProps");
+        root.transform.SetParent(transform, false);
+
+        // 3 farklı bahçe alanı oluşturalım (Gölet dışında rastgele dağıtarak)
+        Vector3[] gardenCenters = new Vector3[6];
+        Vector3 lakeCenter = GetMegaLakeCenter();
+        for(int idx = 0; idx < gardenCenters.Length; ++idx) {
+            float gAng = Random.Range(0f, Mathf.PI * 2f);
+            float gDist = megaLakeRadius + Random.Range(40f, 180f);
+            gardenCenters[idx] = lakeCenter + new Vector3(Mathf.Cos(gAng) * gDist, 0, Mathf.Sin(gAng) * gDist);
+        }
+
+        foreach (var centerPos in gardenCenters)
+        {
+            Vector3 center = centerPos;
+            center.y = GetTerrainY(center) + 0.1f;
+            
+            GameObject gardenRoot = new GameObject("MiniGarden");
+            gardenRoot.transform.SetParent(root.transform, false);
+            gardenRoot.transform.position = center;
+            gardenRoot.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+            
+            float pScale = 2.0f;
+            float fenceLen = 1.9f * pScale;
+            
+            // Çitler
+            for (int i = 0; i < 4; i++) {
+                var f = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(fencePrefab, gardenRoot.transform);
+                f.transform.localPosition = new Vector3(-1.5f * fenceLen + i * fenceLen, 0, -1.5f * fenceLen);
+                f.transform.localScale = Vector3.one * pScale;
+            }
+            for (int i = 0; i < 3; i++) {
+                var f = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(fencePrefab, gardenRoot.transform);
+                f.transform.localPosition = new Vector3(-1.5f * fenceLen + i * fenceLen, 0, 1.5f * fenceLen);
+                f.transform.localScale = Vector3.one * pScale;
+            }
+            for (int i = 0; i < 3; i++) {
+                var f = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(fencePrefab, gardenRoot.transform);
+                f.transform.localPosition = new Vector3(-2f * fenceLen, 0, -0.5f * fenceLen + i * fenceLen);
+                f.transform.localRotation = Quaternion.Euler(0, -90f, 0);
+                f.transform.localScale = Vector3.one * pScale;
+            }
+            for (int i = 0; i < 3; i++) {
+                var f = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(fencePrefab, gardenRoot.transform);
+                f.transform.localPosition = new Vector3(2f * fenceLen, 0, -0.5f * fenceLen + i * fenceLen);
+                f.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+                f.transform.localScale = Vector3.one * pScale;
+            }
+
+            // Hydrangea Çiçekleri (Sol bölüm)
+            var hyd = GetPrefab("Hydrangea");
+            if (hyd) {
+                for (int i=0; i<3; i++) {
+                    var h = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(hyd, gardenRoot.transform);
+                    h.transform.localPosition = new Vector3(-1f * fenceLen + Random.Range(-0.5f, 0.5f), 0, Random.Range(-0.5f, 0.5f) * fenceLen);
+                    h.transform.localRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+                    h.transform.localScale = Vector3.one * pScale * 1.5f;
+                }
+            }
+
+            // Toprak zemin ve Laleler (Orta bölüm)
+            var earth = GetPrefab("EarthHill");
+            var tred = GetPrefab("TulipRed");
+            var tyel = GetPrefab("TulipYellow");
+            if (earth) {
+                var e = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(earth, gardenRoot.transform);
+                e.transform.localPosition = new Vector3(0.5f * fenceLen, 0, 0.5f * fenceLen);
+                e.transform.localScale = new Vector3(pScale * 1.5f, pScale * 0.8f, pScale * 1.5f);
+                if (tred && tyel) {
+                    for(int j=0; j<8; j++) {
+                        var tf = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(Random.value > 0.5f ? tred : tyel, gardenRoot.transform);
+                        tf.transform.localPosition = new Vector3(0.5f * fenceLen + Random.Range(-0.6f, 0.6f) * fenceLen, 0, 0.5f * fenceLen + Random.Range(-0.4f, 0.4f) * fenceLen);
+                        tf.transform.localScale = Vector3.one * pScale * 1.2f;
+                    }
+                }
+            }
+
+            // Alet Edevat ve Saksılar (Sağ bölüm)
+            GameObject[] props = { GetPrefab("WateringCup"), GetPrefab("PotSmall"), GetPrefab("PotBig"), GetPrefab("Shovel"), GetPrefab("PotRectangle") };
+            foreach(var pr in props) {
+                if (pr == null) continue;
+                var pObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(pr, gardenRoot.transform);
+                pObj.transform.localPosition = new Vector3(1.2f * fenceLen + Random.Range(-0.5f, 0.5f), 0, -0.5f * fenceLen + Random.Range(-0.5f, 0.5f));
+                pObj.transform.localRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+                pObj.transform.localScale = Vector3.one * pScale;
+            }
+        }
+#endif
+    }
+
+    private void CreateAmbientAircraft()
+    {
+#if UNITY_EDITOR
+        string aircraftRootPath = "Assets/Generic Aircraft Models/Prefabs/Aircrafts";
+        string p1Path = aircraftRootPath + "/aircraft-d.prefab"; // Smaller Jet
+        string p2Path = aircraftRootPath + "/aircraft-e.prefab"; // Smaller Alt Jet
+
+        GameObject prefab1 = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p1Path);
+        GameObject prefab2 = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p2Path);
+
+        if (prefab1 == null || prefab2 == null) return;
+
+        Transform root = transform.Find("AmbientAircraft");
+        if (root != null) DestroyImmediate(root.gameObject);
+        GameObject aircraftRoot = new GameObject("AmbientAircraft");
+        aircraftRoot.transform.SetParent(transform, false);
+
+        // --- BEYAZ UÇAK (750m İrtifa, Çok Uzak) ---
+        GameObject whitePlane = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab1, aircraftRoot.transform);
+        whitePlane.name = "Aircraft_White_Far";
+        whitePlane.transform.position = new Vector3(-1800f, 750f, 400f); 
+        whitePlane.transform.rotation = Quaternion.Euler(0, 90f, 0);
+        whitePlane.transform.localScale = Vector3.one * 1.5f; 
+        SetColor(whitePlane, Color.white);
+        var ai1 = whitePlane.AddComponent<AmbientAircraftAI>();
+        ai1.speed = 90f; 
+        ai1.loopDistance = 4500f;
+        FixPinkMaterials(whitePlane);
+
+        // --- SİYAH UÇAK ---
+        GameObject greenPlane = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab2, aircraftRoot.transform);
+        greenPlane.name = "Aircraft_Black_Far";
+        greenPlane.transform.position = new Vector3(1800f, 780f, -250f);
+        greenPlane.transform.rotation = Quaternion.Euler(0, -90f, 0);
+        greenPlane.transform.localScale = Vector3.one * 1.6f;
+        SetColor(greenPlane, new Color(0.15f, 0.15f, 0.15f));
+        var ai2 = greenPlane.AddComponent<AmbientAircraftAI>();
+        ai2.speed = 85f;
+        ai2.loopDistance = 4500f;
+        FixPinkMaterials(greenPlane);
+#endif
+    }
+
+    private void SpawnFighterFlybys()
+    {
+#if UNITY_EDITOR
+        var sc = FindFirstObjectByType<UnityEngine.Splines.SplineContainer>();
+        if (sc == null) return;
+
+        // Spline'daki en yüksek 3-4 noktayı bul (loops/peaks)
+        List<Vector3> peaks = new List<Vector3>();
+        float step = 0.05f;
+        for (float t = 0; t <= 1f; t += step) {
+            Vector3 p = sc.EvaluatePosition(t);
+            if (p.y > 60f) { // Belirli yüksekliğin üstündeki her peak için 
+                bool tooClose = false;
+                foreach(var v in peaks) if (Vector3.Distance(v, p) < 150f) tooClose = true;
+                if (!tooClose) peaks.Add(p);
+            }
+        }
+
+        Transform root = transform.Find("FighterFlybys");
+        if (root != null) DestroyImmediate(root.gameObject);
+        GameObject fighterRoot = new GameObject("FighterFlybys");
+        fighterRoot.transform.SetParent(transform, false);
+
+        string fighterPath = "Assets/Generic Aircraft Models/Prefabs/Aircrafts/aircraft-f.prefab";
+        GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(fighterPath);
+        if (prefab == null) return;
+
+        int count = 0;
+        foreach (var peak in peaks) {
+            GameObject f = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, fighterRoot.transform);
+            f.name = "FighterJet_" + count++;
+            
+            // Peak'ın üzerinden çok yakın geçecek şekilde başlangıç konumu
+            Vector3 flyPos = peak + Vector3.up * 8f + Vector3.right * 12f; 
+            f.transform.position = flyPos - Vector3.forward * 1500f; // 1.5km geriden başla
+            f.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+            f.transform.localScale = Vector3.one * 5f;
+
+            var ai = f.AddComponent<FighterFlybyAI>();
+            ai.speed = 220f; // Çok hızlı (sonic boom hissi)
+            ai.shakeDistance = 50f;
+            ai.loopDistance = 6000f;
+            
+            SetColor(f, new Color(0.4f, 0.45f, 0.5f)); // Grey military color
+            FixPinkMaterials(f);
+        }
+#endif
+    }
 }
 
 public class AnimalWander : MonoBehaviour
@@ -1371,6 +1639,10 @@ public class AnimalWander : MonoBehaviour
     {
         startPos = transform.position;
         targetYRot = transform.eulerAngles.y;
+        
+        // Hayvanların yerinde saymasına neden olan "Root Motion" kapatılır.
+        Animator anim = GetComponent<Animator>();
+        if (anim != null) anim.applyRootMotion = false;
     }
 
     void Update()
@@ -1396,7 +1668,8 @@ public class AnimalWander : MonoBehaviour
         float newY = Mathf.MoveTowardsAngle(currentY, targetYRot, turnSpeed * Time.deltaTime);
         transform.rotation = Quaternion.Euler(0, newY, 0);
 
-        transform.Translate(Vector3.forward * moveSpeed * Time.deltaTime, Space.Self);
+        // Skala büyüdüğü için hızı hafifçe kompanze etmeliyiz
+        transform.Translate(Vector3.forward * moveSpeed * 1.5f * Time.deltaTime, Space.Self);
 
         if (!isBird && Terrain.activeTerrain != null)
         {

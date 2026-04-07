@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0e74b7044b645c046b2a67962ee038fc
+timeCreated: 1438060001
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 9406
+  packageName: Ski Boats
+  packageVersion: 1.0
+  assetPath: Assets/boats/fbxMeshes/Materials/platfrom.mat
+  uploadId: 74500

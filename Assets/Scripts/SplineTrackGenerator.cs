@@ -101,7 +101,7 @@ public class SplineTrackGenerator : MonoBehaviour
                 Mathf.Cos(angle) * radius,
                 Mathf.Sin(angle * 2f) * heightAmplitude,
                 Mathf.Sin(angle) * radius
-            ));
+            ) * 1.5f);
         }
         return points;
     }
@@ -113,18 +113,18 @@ public class SplineTrackGenerator : MonoBehaviour
         points.Add(new Vector3(0f, 2f, 0f));
         points.Add(new Vector3(0f, 2f, 30f));
 
-        points.Add(new Vector3(5f, 5f, 80f));
-        points.Add(new Vector3(10f, 12f, 140f));
-        points.Add(new Vector3(12f, 22f, 200f));
-        points.Add(new Vector3(10f, 38f, 265f));
+        points.Add(new Vector3(5f, 15f, 80f));
+        points.Add(new Vector3(10f, 35f, 140f));
+        points.Add(new Vector3(30f, 65f, 200f));
+        points.Add(new Vector3(15f, 90f, 265f));
 
-        points.Add(new Vector3(20f, 30f, 300f));
+        points.Add(new Vector3(-10f, 30f, 300f));
         points.Add(new Vector3(45f, 8f, 325f));
         
-        points.Add(new Vector3(75f,  5f, 330f));
-        points.Add(new Vector3(95f,  5f, 330f));
+        points.Add(new Vector3(75f,  25f, 340f));
+        points.Add(new Vector3(95f,  55f, 310f));
 
-        points.Add(new Vector3(105f,  5f, 330f)); 
+        points.Add(new Vector3(105f,  25f, 330f)); 
         points.Add(new Vector3(115f, 15f, 330f)); 
         points.Add(new Vector3(122f, 32f, 328f)); 
         points.Add(new Vector3(120f, 48f, 323f)); 
@@ -132,46 +132,51 @@ public class SplineTrackGenerator : MonoBehaviour
         points.Add(new Vector3(104f, 48f, 317f)); 
         points.Add(new Vector3(102f, 32f, 312f)); 
         points.Add(new Vector3(109f, 15f, 310f)); 
-        points.Add(new Vector3(115f,  5f, 310f)); 
+        points.Add(new Vector3(115f,  6f, 310f)); 
         
-        points.Add(new Vector3(125f,  5f, 310f));
-        points.Add(new Vector3(145f,  5f, 290f));
+        points.Add(new Vector3(125f,  30f, 310f));
+        points.Add(new Vector3(145f,  65f, 290f));
 
-        points.Add(new Vector3(160f,  5f, 240f));
-        points.Add(new Vector3(175f, 25f, 200f));
-        points.Add(new Vector3(160f,  5f, 160f));
+        points.Add(new Vector3(160f,  10f, 240f));
+        points.Add(new Vector3(175f, 45f, 200f));
+        points.Add(new Vector3(150f,  8f, 160f));
 
-        points.Add(new Vector3(140f,  5f, 130f));
-        points.Add(new Vector3(120f, 15f, 100f));
-        points.Add(new Vector3(140f,  5f,  70f));
-        points.Add(new Vector3(160f, 15f,  40f));
-        points.Add(new Vector3(120f,  5f,  10f));
+        points.Add(new Vector3(140f,  35f, 130f));
+        points.Add(new Vector3(120f, 10f, 100f));
+        points.Add(new Vector3(140f,  25f,  70f));
+        points.Add(new Vector3(155f, 45f,  40f));
+        points.Add(new Vector3(120f,  8f,  10f));
         
-        points.Add(new Vector3(80f, 6f, -30f));
-        points.Add(new Vector3(40f, 8f, -70f));
-        points.Add(new Vector3(10f, 5f, -110f));
-        points.Add(new Vector3(-5f, 5f, -130f));
+        points.Add(new Vector3(80f, 40f, -30f));
+        points.Add(new Vector3(40f, 70f, -70f));
+        points.Add(new Vector3(10f, 25f, -100f));
+        points.Add(new Vector3(-5f, 8f, -125f));
 
-        points.Add(new Vector3(-25f,  5f, -130f)); 
-        points.Add(new Vector3(-35f, 15f, -130f)); 
-        points.Add(new Vector3(-42f, 32f, -128f)); 
+        points.Add(new Vector3(-25f,  25f, -135f)); 
+        points.Add(new Vector3(-35f, 15f, -135f)); 
+        points.Add(new Vector3(-42f, 32f, -130f)); 
         points.Add(new Vector3(-40f, 48f, -125f)); 
-        points.Add(new Vector3(-32f, 52f, -122f)); 
-        points.Add(new Vector3(-24f, 48f, -119f)); 
-        points.Add(new Vector3(-22f, 32f, -117f)); 
-        points.Add(new Vector3(-29f, 15f, -115f)); 
-        points.Add(new Vector3(-35f,  5f, -115f)); 
+        points.Add(new Vector3(-32f, 52f, -120f)); 
+        points.Add(new Vector3(-24f, 48f, -117f)); 
+        points.Add(new Vector3(-22f, 32f, -115f)); 
+        points.Add(new Vector3(-29f, 15f, -110f)); 
+        points.Add(new Vector3(-35f,  8f, -108f)); 
         
-        points.Add(new Vector3(-45f,  5f, -115f));
+        points.Add(new Vector3(-55f,  35f, -105f));
 
-        points.Add(new Vector3(-65f,  5f, -100f));
-        points.Add(new Vector3(-80f, 18f, -80f));
-        points.Add(new Vector3(-65f,  5f, -60f));
+        points.Add(new Vector3(-70f,  8f, -90f));
+        points.Add(new Vector3(-85f, 45f, -70f));
+        points.Add(new Vector3(-65f,  10f, -60f));
 
         points.Add(new Vector3(-40f,  3f, -40f));
         points.Add(new Vector3(-20f,  2f, -20f));
         points.Add(new Vector3(  0f,  2f, -20f));
         points.Add(new Vector3(  0f,  2f, -10f));
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            points[i] = points[i] * 1.5f;
+        }
 
         return points;
     }
@@ -216,6 +221,12 @@ public class SplineTrackGenerator : MonoBehaviour
         points.Add(new Vector3(-25f, 8.5f, -28f));
         points.Add(new Vector3(-15f, 8f, -32f));
         points.Add(new Vector3(-10f, 8f, -30f));
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            points[i] = points[i] * 1.5f;
+        }
+
         return points;
     }
 

@@ -86,12 +86,11 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         CreateAmbientAircraft(); // Yeni uçaklar eklendi
         SpawnFighterFlybys();    // Savaş uçakları ve yakın geçişler
 
-        // Bulutlar KAPALI - mevcut varsa temizle
+        // Bulutlar tamamen devre dışı — PrototypeClouds oluşturulmayacak
         {
             Transform ec = transform.Find("PrototypeClouds");
             if (ec != null) DestroyImmediate(ec.gameObject);
         }
-        if (buildClouds) CreateRealisticClouds();
         ApplySkyboxOnly();
 #if UNITY_EDITOR
         ForceRecoverEnvironment();
@@ -831,26 +830,43 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 boatAI.wakePrefab           = boatWakePrefab;
                 boatAI.waterY               = center.y + 0.15f;
 
-                // --- NPC ölçeği: SABIT KÜÇÜK BOYUT ---
-                // Not: Bounds world-space'te hesaplanınca boatScale çarpanı boyutu şişiriyordu.
-                // Şimdi localScale üzerinden küçük sabit ölçek atıyoruz.
+                // --- TEKNE İÇİ NPC'LER (optimize boyut + oturma pozisyonu) ---
                 if (npcPrefabList.Count > 0)
                 {
+                    // Tekne gövdesinin yüksekliğini hesapla (NPC'yi doğru yere oturtmak için)
+                    float boatDeckY = 0.20f; // Varsayılan güverte local Y
+                    Renderer boatRend = boatObj.GetComponentInChildren<Renderer>();
+                    if (boatRend != null)
+                    {
+                        // Local space'te güverte yüksekliği (bounds min Y'den biraz yukarı)
+                        Bounds lb = boatRend.localBounds;
+                        boatDeckY = lb.center.y + lb.extents.y * 0.3f;
+                    }
+
                     int npcCount = Random.Range(1, 3);
                     for (int n = 0; n < npcCount; n++)
                     {
                         GameObject npcPrefab = npcPrefabList[Random.Range(0, npcPrefabList.Count)];
                         GameObject npcObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(npcPrefab, boatObj.transform);
 
-                        // Professional Human Scale: Since character models are around 1.8m,
-                        // and the boat is scaled by 3x, we divide by boatScale to get 1:1 world scale.
-                        float humanScale = 1.0f / boatScale; 
+                        // ──── BOYUT: Tekne ölçeğine göre insan 1.7-1.8m olacak şekilde ────
+                        // Tekne boatScale ile büyütülmüş, NPC'yi ters ölçekle gerçekçi boyuta getir
+                        // NPC modelleri ~1.7m, tekne 3x büyütülmüş → 1/boatScale * ince ayar
+                        float humanScale = (1.0f / boatScale) * 0.85f;
                         npcObj.transform.localScale = Vector3.one * humanScale;
 
-                        // Tekne gövdesinin üstünde konumla (local coords)
-                        float npcOffsetX = (n - (npcCount - 1) * 0.5f) * 0.15f;
-                        npcObj.transform.localPosition = new Vector3(npcOffsetX, 0.25f, 0f); // Yükseltildi
-                        npcObj.transform.localRotation = Quaternion.Euler(0, Random.Range(-20f, 20f), 0);
+                        // ──── POZİSYON: Güverte üzerinde, yan yana oturma ────
+                        // Tekne boyuna göre NPC'leri ön-arka ve sağ-sol dağıt
+                        float npcSpacingX = 0.12f; // Yan yana mesafe (local)
+                        float npcOffsetX = (n - (npcCount - 1) * 0.5f) * npcSpacingX;
+                        float npcOffsetZ = (npcCount > 1) ? (n * 0.08f - 0.04f) : 0f; // Hafif kaydır
+                        npcObj.transform.localPosition = new Vector3(npcOffsetX, boatDeckY, npcOffsetZ);
+                        npcObj.transform.localRotation = Quaternion.Euler(0, Random.Range(-15f, 15f), 0);
+
+                        // ──── ANİMASYON: Root motion kapatılmalı yoksa NPC tekneden düşer ────
+                        Animator npcAnim = npcObj.GetComponentInChildren<Animator>();
+                        if (npcAnim != null) npcAnim.applyRootMotion = false;
+
                         FixPinkMaterials(npcObj);
                     }
                 }

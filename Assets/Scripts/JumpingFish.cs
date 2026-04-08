@@ -2,10 +2,13 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Sinematik Balık v4
-/// – Coaster yaklaştığında kameranın ÖNÜNDEN (çarpmadan) geçecek şekilde zıplar.
-/// – 5-6 kere art arda atlar, ardından cooldown.
-/// – Atlarken su yüzeyinde iz (ripple) bırakır.
+/// Sinematik Balık v5 — Kamera Paralel Sıçrama
+/// – Coaster yaklaştığında kameranın ÖNÜNDE, sağdan sola veya soldan sağa
+///   gerçekçi bir ark çizerek sıçrar.
+/// – Sıçrama sırasında arkasında su parçacıkları (trail) bırakır.
+/// – Kameraya yakın geçtiğinde su damlaları kameraya vurur ve yukarıdan
+///   aşağıya süzülür.
+/// – Normal zamanlarda gölette rasgele küçük zıplamalar yapar.
 /// </summary>
 public class JumpingFish : MonoBehaviour
 {
@@ -24,13 +27,16 @@ public class JumpingFish : MonoBehaviour
     public int   burstJumpCount  = 6;
     public float burstJumpDelay  = 0.45f;
     public float burstCooldown   = 12f;
-    [Tooltip("Kamerayla arasındaki minimum güvenli mesafe (çarpmamak için)")]
-    public float cameraSafeDistance = 15f;
+    [Tooltip("Kameraya en yakın geçiş mesafesi (kameranın önünde) – daha yakın için küçült)")]
+    public float cameraPassDistance = 6f;
 
     [Header("FX")]
+    [Tooltip("Splash particle prefab – realistic default")]
     public GameObject splashFXPrefab;
-    [Tooltip("Atlama sırasında su yüzeyinde çıkacak iz halkası")]
+    [Tooltip("Atlama sırasında arkada bırakılacak su damlası iz prefabı")]
     public GameObject rippleTrailPrefab;
+    [Tooltip("Path to realistic splash prefab used if splashFXPrefab is not assigned")]
+    public string splashPrefabPath = "Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_Multiple.prefab";
 
     // ── State ─────────────────────────────────────
     private Vector3  _basePos;
@@ -62,6 +68,11 @@ public class JumpingFish : MonoBehaviour
         ScheduleNormalJump();
         if (!_searched) { _searched = true; StartCoroutine(FindCoaster()); }
         
+        // Load realistic splash prefab if not assigned in inspector
+        if (splashFXPrefab == null && !string.IsNullOrEmpty(splashPrefabPath))
+        {
+            splashFXPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(splashPrefabPath);
+        }
         if (rippleTrailPrefab == null) rippleTrailPrefab = splashFXPrefab;
     }
 
@@ -88,7 +99,7 @@ public class JumpingFish : MonoBehaviour
         _burstActive     = true;
         _burstOnCooldown = true;
 
-        int count = Random.Range(5, 7); // Kullanıcı 5-6 kez zıplamasını istedi
+        int count = Random.Range(burstJumpCount - 1, burstJumpCount + 1);
 
         for (int i = 0; i < count; i++)
         {
@@ -113,42 +124,50 @@ public class JumpingFish : MonoBehaviour
         _jProgress += Time.deltaTime / _jDuration;
         if (_jProgress >= 1f) { _jProgress = 1f; EndJump(); return; }
 
-        float arc = 4f * _jHeight * _jProgress * (1f - _jProgress);
-        Vector3 pos = Vector3.Lerp(_jStart, _jEnd, _jProgress);
-        pos.y += arc;
+        // ── Gerçekçi parabolik ark ──────────────────────────────────
+        // Zirve noktasını arc'ın ortasında tut, iniş öncesi hızlanma ile
+        float t = _jProgress;
+        float arc = 4f * _jHeight * t * (1f - t);
 
-        // Su yüzeyinde iz (trail) bırak - Daha sık ve görünür
-        _trailTimer += Time.deltaTime;
-        if (_trailTimer > 0.08f)
-        {
-            _trailTimer = 0f;
-            Vector3 surfacePos = new Vector3(pos.x, _basePos.y + 0.05f, pos.z);
-            if (rippleTrailPrefab != null)
-            {
-                var ripple = Instantiate(rippleTrailPrefab, surfacePos, Quaternion.identity);
-                Destroy(ripple, 1.5f);
-            }
-        }
+        // Hafif asimetri: zirveyi biraz öne çek (0.45 civarı)
+        float asymT = Mathf.Pow(t, 0.9f);
+        Vector3 pos = Vector3.Lerp(_jStart, _jEnd, asymT);
+        pos.y = _basePos.y + arc;
 
-        // --- CANLILIK: Balık kıvrılma/wiggle mantığı ---
-        Vector3 look = pos - transform.position;
-        if (look.sqrMagnitude > 0.001f)
+        // ── Balık vücut yönelimi — hareket yönüne bak + kıvrılma ─────
+        Vector3 velocity = pos - transform.position;
+        if (velocity.sqrMagnitude > 0.001f)
         {
-            Quaternion targetRot = Quaternion.LookRotation(look.normalized);
-            // Sağa sola kıvrılma (Sinüs dalgası)
-            float wiggle = Mathf.Sin(Time.time * 25f) * 15f; 
+            Quaternion targetRot = Quaternion.LookRotation(velocity.normalized);
+            
+            // Gerçekçi kıvrılma: yüzme hissi
+            float wiggleFreq = 22f;
+            float wiggleAmp = Mathf.Lerp(20f, 8f, t); // Başlangıçta güçlü, zirveye yakın azal
+            float wiggle = Mathf.Sin(Time.time * wiggleFreq) * wiggleAmp;
+            
+            // Eğim: yükselirken yukarı, inerken aşağı bak
+            float pitchFromArc = Mathf.Atan2(velocity.y, new Vector2(velocity.x, velocity.z).magnitude) * Mathf.Rad2Deg;
             targetRot *= Quaternion.Euler(0, wiggle, 0);
             
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 12f);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 15f);
         }
 
-        // --- KAMERA SIÇRAMA (VR Gözlük Etkisi) ---
-        if (Camera.main != null && !_hasScreenSplashed)
+        // ── Su damlası trail — sıçrama boyunca arkada bırak ──────────
+        _trailTimer += Time.deltaTime;
+        if (_trailTimer > 0.04f) // Daha sık (daha yoğun iz)
         {
-            float distToCam = Vector3.Distance(pos, Camera.main.transform.position);
-            if (distToCam < 6f) // 6 metreden yakınsa tetikle
+            _trailTimer = 0f;
+            SpawnTrailDroplet(pos);
+        }
+
+        // ── Kamera splash — kameraya yakınsa su vur ──────────────────
+        Camera mainCam = Camera.main;
+        if (mainCam != null && !_hasScreenSplashed)
+        {
+            float distToCam = Vector3.Distance(pos, mainCam.transform.position);
+            if (distToCam < 8f)
             {
-                SpawnScreenSplash();
+                SpawnCameraSplash(mainCam);
                 _hasScreenSplashed = true;
             }
         }
@@ -156,30 +175,107 @@ public class JumpingFish : MonoBehaviour
         transform.position = pos;
     }
 
-    void SpawnScreenSplash()
+    /// <summary>
+    /// Sıçrama arkasında su damlası/parçacık iz bırak
+    /// </summary>
+    void SpawnTrailDroplet(Vector3 fishPos)
     {
-        if (splashFXPrefab == null || Camera.main == null) return;
+        if (rippleTrailPrefab == null) return;
         
-        // Kameranın tam önüne 0.6 metre mesafede BÜYÜK bir splash oluştur
-        Vector3 screenPos = Camera.main.transform.position + Camera.main.transform.forward * 0.6f + Camera.main.transform.up * -0.1f;
-        var screenSplash = Instantiate(splashFXPrefab, screenPos, Camera.main.transform.rotation);
-        screenSplash.transform.localScale = Vector3.one * 0.85f; // Boyut büyütüldü
+        // Balığın arkasından (kuyruk yönü) birkaç damla serpintisi
+        Vector3 behindDir = -transform.forward;
+        Vector3 dropPos = fishPos + behindDir * 0.5f;
         
-        // Suların süzülmesi hissi (daha hızlı hareket)
-        StartCoroutine(SlideSplashDown(screenSplash));
-        Destroy(screenSplash, 2.0f);
+        // Su yüzeyine yakın damlalar da bırak
+        Vector3 surfacePos = new Vector3(fishPos.x, _basePos.y + 0.08f, fishPos.z);
+        
+        // Havada iz
+        if (fishPos.y > _basePos.y + 0.5f) // Su yüzeyinin üzerindeyse
+        {
+            var airDrop = Instantiate(rippleTrailPrefab, dropPos, Quaternion.identity);
+            airDrop.transform.localScale = Vector3.one * Random.Range(0.15f, 0.35f);
+            Destroy(airDrop, 1.2f);
+        }
+        
+        // Su yüzeyinde iz halkası
+        var surfaceDrop = Instantiate(rippleTrailPrefab, surfacePos, Quaternion.identity);
+        surfaceDrop.transform.localScale = Vector3.one * Random.Range(0.3f, 0.6f);
+        Destroy(surfaceDrop, 1.8f);
     }
 
-    IEnumerator SlideSplashDown(GameObject fx)
+    /// <summary>
+    /// Kameraya su damlaları  vurur ve yukarıdan aşağıya süzülür
+    /// </summary>
+    void SpawnCameraSplash(Camera cam)
     {
-        float t = 0;
-        while (t < 1.0f && fx != null)
+        if (splashFXPrefab == null) return;
+        
+        Transform camT = cam.transform;
+        
+        // Create a parent object to keep splash particles moving with the camera
+        GameObject splashParent = new GameObject("CameraSplashParent");
+        splashParent.transform.SetParent(camT);
+        splashParent.transform.localPosition = Vector3.zero;
+        splashParent.transform.localRotation = Quaternion.identity;
+        
+        // Main splash at camera centre
+        Vector3 centerPos = camT.position + camT.forward * 0.45f + camT.up * 0.05f;
+        var mainSplash = Instantiate(splashFXPrefab, centerPos, camT.rotation, splashParent.transform);
+        mainSplash.transform.localScale = Vector3.one * 0.9f;
+        StartCoroutine(DripDown(mainSplash, camT, 0.25f, 3.0f));
+        
+        // Additional droplets around centre for richer effect
+        int dropCount = Random.Range(4, 7);
+        for (int i = 0; i < dropCount; i++)
         {
-            // Süzülme hızı artırıldı
-            fx.transform.position += Vector3.down * Time.deltaTime * 0.35f;
-            t += Time.deltaTime;
+            float offsetX = Random.Range(-0.25f, 0.25f);
+            float offsetY = Random.Range(0.12f, 0.38f);
+            Vector3 pos = camT.position + camT.forward * 0.5f + camT.right * offsetX + camT.up * offsetY;
+            var dropFX = Instantiate(splashFXPrefab, pos, camT.rotation, splashParent.transform);
+            dropFX.transform.localScale = Vector3.one * Random.Range(0.35f, 0.75f);
+            float dripSpeed = Random.Range(0.18f, 0.5f);
+            float dripDuration = Random.Range(2.0f, 3.5f);
+            StartCoroutine(DripDown(dropFX, camT, dripSpeed, dripDuration));
+        }
+    }
+
+    /// <summary>
+    /// Su damlası kameranın önünde yukarıdan aşağıya doğru süzülür
+    /// </summary>
+    IEnumerator DripDown(GameObject fx, Transform cam, float dripSpeed, float duration)
+    {
+        if (fx == null) yield break;
+        
+        float elapsed = 0f;
+        Vector3 localOffset = Vector3.zero;
+        
+        while (elapsed < duration && fx != null)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            
+            // Stronger gravity curve for a smooth slide
+            float gravity = dripSpeed * (1f + t * 3f);
+            localOffset += Vector3.down * gravity * Time.deltaTime;
+            
+            // Random lateral sway
+            float sway = Mathf.Sin(elapsed * 4f) * 0.025f * Time.deltaTime;
+            localOffset += Vector3.right * sway;
+            
+            // Update position relative to camera each frame
+            if (cam != null)
+            {
+                fx.transform.position = cam.position + cam.forward * 0.45f + cam.TransformDirection(localOffset);
+                fx.transform.rotation = cam.rotation;
+            }
+            
+            // Fade out scale gradually
+            fx.transform.localScale = Vector3.Lerp(fx.transform.localScale, Vector3.one * 0.2f, t * 0.5f);
+            
             yield return null;
         }
+        
+        if (fx != null) Destroy(fx);
     }
 
     void BeginJump(Vector3 end, float height, float duration)
@@ -207,30 +303,51 @@ public class JumpingFish : MonoBehaviour
         ScheduleNormalJump();
     }
 
+    /// <summary>
+    /// Sinematik atlama — Kameranın ÖNÜNDEN sağdan sola veya soldan sağa geçiş
+    /// Balık kameranın bakış yönüne dik (perpendicular) olarak ark çizer
+    /// </summary>
     Vector3 CinematicEnd()
     {
-        if (_coasterTf == null) return NormalEnd();
-
-        Vector3 coasterFwd = _coasterTf.forward;
-        coasterFwd.y = 0f;
-        if (coasterFwd.sqrMagnitude < 0.01f) coasterFwd = Vector3.forward;
-        coasterFwd.Normalize();
-
-        // Kameraya çarpmayacak şekilde (cameraSafeDistance kadar ötede) geçiş noktası
-        Vector3 passPoint = _coasterTf.position + coasterFwd * cameraSafeDistance;
-        passPoint.y = _basePos.y;
-
-        Vector3 coasterRight = Vector3.Cross(Vector3.up, coasterFwd).normalized;
-        float side = Vector3.Dot(transform.position - passPoint, coasterRight);
-        float dir = side >= 0 ? 1f : -1f;
-
-        float crossDist = jumpDistance * cinematicDistanceMultiplier;
-
-        // Tam karşıdan karşıya (dik) zıpla
-        transform.position = passPoint + coasterRight * (dir * crossDist * 0.4f);
-        Vector3 end = passPoint + coasterRight * (-dir * crossDist * 0.4f);
+        Camera cam = Camera.main;
+        if (cam == null && _coasterTf == null) return NormalEnd();
         
-        return end;
+        // Kullanılacak referans: Kamera varsa kamera, yoksa coaster
+        Transform refTf = cam != null ? cam.transform : _coasterTf;
+        
+        // Kameranın ileri yönü (yatay düzlem)
+        Vector3 camForward = refTf.forward;
+        camForward.y = 0f;
+        if (camForward.sqrMagnitude < 0.01f) camForward = Vector3.forward;
+        camForward.Normalize();
+        
+        // Kameranın sağ yönü (bu, sağ-sol geçiş ekseni)
+        Vector3 camRight = Vector3.Cross(Vector3.up, camForward).normalized;
+        
+        // Kameranın önündeki geçiş noktası
+        Vector3 passPoint = refTf.position + camForward * cameraPassDistance;
+        passPoint.y = _basePos.y;
+        
+        // Sağdan sola mı soldan sağa mı? Rastgele veya balığın konumuna göre
+        float side = Vector3.Dot(transform.position - passPoint, camRight);
+        float dir = side >= 0 ? 1f : -1f;
+        
+        // Geçiş en ve boyu
+        float crossDist = jumpDistance * cinematicDistanceMultiplier;
+        
+        // Başlangıç: kameranın bir yanından
+        Vector3 startPos = passPoint + camRight * (dir * crossDist * 0.5f);
+        startPos.y = _basePos.y;
+        
+        // Balığı başlangıç noktasına taşı
+        transform.position = startPos;
+        _basePos = new Vector3(startPos.x, _basePos.y, startPos.z);
+        
+        // Bitiş: kameranın diğer yanına
+        Vector3 endPos = passPoint + camRight * (-dir * crossDist * 0.5f);
+        endPos.y = _basePos.y;
+        
+        return endPos;
     }
 
     Vector3 NormalEnd()
@@ -243,7 +360,9 @@ public class JumpingFish : MonoBehaviour
     {
         if (splashFXPrefab == null) return;
         var fx = Instantiate(splashFXPrefab, pos + Vector3.up * 0.15f, Quaternion.identity);
+        // Splash'ı kameraya doğru yönlendir
         if (Camera.main != null) fx.transform.LookAt(Camera.main.transform.position);
+        fx.transform.localScale = Vector3.one * Random.Range(0.8f, 1.3f);
         Destroy(fx, 2.5f);
     }
 

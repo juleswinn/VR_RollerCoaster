@@ -23,8 +23,8 @@ public class RollerCoasterBoatAI : MonoBehaviour
     public float turnSpeed   = 90f;        // derece/saniye
 
     [Header("Coaster Reaction")]
-    public float coasterReactDistance = 90f;  // tetik mesafesi
-    public float interceptLeadTime    = 2.5f;  // kaç saniye ileriye intercept
+    public float coasterReactDistance = 110f;  // Daha uzaktan fark etmesi için artırıldı
+    public float interceptLeadTime    = 3.5f;  // Daha ileriyi hedeflesin (altından geçmek için)
 
     [Header("Water FX")]
     [Tooltip("NamuFX Water_Splash prefab – burst sırasında patlar")]
@@ -104,11 +104,19 @@ public class RollerCoasterBoatAI : MonoBehaviour
         // ── Hedef waypoint ────────────────────────────────────────
         if (coasterNear && _coaster != null)
         {
-            // Coaster'ın önüne intercept noktası hesapla – bazen tam önü bazen biraz ilerisi
-            // Hedefe küçük bir jitter ekleyerek teknelerin üst üste binmesini önlüyoruz
-            Vector3 jitter = new Vector3(Random.Range(-5f, 5f), 0, Random.Range(-5f, 5f));
-            Vector3 futurePos = _coaster.position + _coaster.forward * (burstSpeed * _interceptTimeVar) + jitter;
+            // Coaster'ın önüne intercept noktası hesapla – daha ileriyi hedefleyerek yolu kesmesini sağlıyoruz
+            Vector3 coasterForward = _coaster.forward;
+            coasterForward.y = 0; // Yatay intercept
+            
+            // Waypoint'i coaster'ın ilerisindeki bir nokta olarak belirle
+            Vector3 futurePos = _coaster.position + coasterForward * (burstSpeed * interceptLeadTime);
             futurePos.y = waterY;
+            
+            // Eğer waypoint göl sınırları dışındaysa sınırda tut
+            Vector3 offset = futurePos - lakeCenter;
+            offset.y = 0;
+            if (offset.magnitude > patrolRadius) futurePos = lakeCenter + offset.normalized * patrolRadius;
+            
             _waypoint = futurePos;
         }
         else

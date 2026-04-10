@@ -21,14 +21,14 @@ public class JumpingFish : MonoBehaviour
 
     [Header("Cinematic Burst")]
     public float coasterTriggerDistance      = 75f;
-    public float cinematicHeightMultiplier   = 3.5f;
+    public float cinematicHeightMultiplier = 6.2f; // Daha devasa zıplamalar (7.5m civarı)
     public float cinematicDistanceMultiplier = 2.5f;
-    public float cinematicDuration           = 1.0f;
+    public float cinematicDuration           = 1.15f;
     public int   burstJumpCount  = 6;
     public float burstJumpDelay  = 0.45f;
     public float burstCooldown   = 12f;
-    [Tooltip("Kameraya en yakın geçiş mesafesi (kameranın önünde) – daha yakın için küçült)")]
-    public float cameraPassDistance = 6f;
+    [Tooltip("Kameraya en yakın geçiş mesafesi")]
+    public float cameraPassDistance = 10.5f;
 
     [Header("FX")]
     [Tooltip("Splash particle prefab – realistic default")]
@@ -49,7 +49,9 @@ public class JumpingFish : MonoBehaviour
 
     // Jump arc
     private Vector3 _jStart, _jEnd;
+    private Vector3 _lStart, _lEnd; // Yerel koordinatlar (Coaster'a göre)
     private float   _jProgress, _jDuration, _jHeight;
+    private bool    _isCinematic;
 
     // Coaster reference (shared)
     private static Transform _coasterTf;
@@ -99,6 +101,10 @@ public class JumpingFish : MonoBehaviour
         _burstActive     = true;
         _burstOnCooldown = true;
 
+        // --- JET SENKRONİZASYONU ---
+        // 3. savaş uçağı tam geçerken zıplaması için ayarlandı (~5.0s)
+        yield return new WaitForSeconds(5.0f);
+
         int count = Random.Range(burstJumpCount - 1, burstJumpCount + 1);
 
         for (int i = 0; i < count; i++)
@@ -106,7 +112,7 @@ public class JumpingFish : MonoBehaviour
             Vector3 end = CinematicEnd();
             BeginJump(end,
                 jumpHeight * cinematicHeightMultiplier,
-                cinematicDuration);
+                cinematicDuration, true);
 
             while (_isJumping) yield return null;
             yield return new WaitForSeconds(burstJumpDelay);
@@ -122,50 +128,51 @@ public class JumpingFish : MonoBehaviour
     void TickArc()
     {
         _jProgress += Time.deltaTime / _jDuration;
-        if (_jProgress >= 1f) { _jProgress = 1f; EndJump(); return; }
-
-        // ── Gerçekçi parabolik ark ──────────────────────────────────
-        // Zirve noktasını arc'ın ortasında tut, iniş öncesi hızlanma ile
-        float t = _jProgress;
+        float t = Mathf.Clamp01(_jProgress);
         float arc = 4f * _jHeight * t * (1f - t);
+        
+        Vector3 pos;
+        float fishJumpScale = 1.0f;
+        if (_isCinematic && _coasterTf != null)
+        {
+            // --- HAREKETLİ REFERANS (Coaster'a göre kilitli) ---
+            pos = _coasterTf.TransformPoint(Vector3.Lerp(_lStart, _lEnd, t));
+            pos.y = _basePos.y + arc;
+            fishJumpScale = 6.0f; // Balığı görünür kılmak için 6 kat büyüttük
+        }
+        else
+        {
+            pos = Vector3.Lerp(_jStart, _jEnd, t);
+            pos.y = _basePos.y + arc;
+        }
+        transform.localScale = Vector3.one * fishJumpScale;
 
-        // Hafif asimetri: zirveyi biraz öne çek (0.45 civarı)
-        float asymT = Mathf.Pow(t, 0.9f);
-        Vector3 pos = Vector3.Lerp(_jStart, _jEnd, asymT);
-        pos.y = _basePos.y + arc;
-
-        // ── Balık vücut yönelimi — hareket yönüne bak + kıvrılma ─────
+        // ── Yönelme (Hareket yönüne bakış) ─────────────────────────
         Vector3 velocity = pos - transform.position;
-        if (velocity.sqrMagnitude > 0.001f)
+        if (velocity.sqrMagnitude > 0.0001f)
         {
             Quaternion targetRot = Quaternion.LookRotation(velocity.normalized);
             
-            // Gerçekçi kıvrılma: yüzme hissi
-            float wiggleFreq = 22f;
-            float wiggleAmp = Mathf.Lerp(20f, 8f, t); // Başlangıçta güçlü, zirveye yakın azal
-            float wiggle = Mathf.Sin(Time.time * wiggleFreq) * wiggleAmp;
-            
-            // Eğim: yükselirken yukarı, inerken aşağı bak
-            float pitchFromArc = Mathf.Atan2(velocity.y, new Vector2(velocity.x, velocity.z).magnitude) * Mathf.Rad2Deg;
-            targetRot *= Quaternion.Euler(0, wiggle, 0);
-            
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 15f);
+            // Gerçekçi kıvrılma (balık kuyruk hareketi)
+            float wiggle = Mathf.Sin(Time.time * 20f) * 12f;
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot * Quaternion.Euler(0, wiggle, 0), Time.deltaTime * 18f);
         }
 
-        // ── Su damlası trail — sıçrama boyunca arkada bırak ──────────
+        // ── Su damlası trail ───────────────────────────────────────
         _trailTimer += Time.deltaTime;
-        if (_trailTimer > 0.04f) // Daha sık (daha yoğun iz)
+        if (_trailTimer > 0.04f)
         {
             _trailTimer = 0f;
             SpawnTrailDroplet(pos);
         }
 
-        // ── Kamera splash — kameraya yakınsa su vur ──────────────────
+        // ── Kamera splash (Sadece sinematik zıplamalarda ve yakınken) ────────────────
         Camera mainCam = Camera.main;
-        if (mainCam != null && !_hasScreenSplashed)
+        if (mainCam != null && !_hasScreenSplashed && _isCinematic)
         {
             float distToCam = Vector3.Distance(pos, mainCam.transform.position);
-            if (distToCam < 8f)
+            // 11 metreden zıpladığı için menzili biraz geniş tuttuk
+            if (distToCam < 18.0f)
             {
                 SpawnCameraSplash(mainCam);
                 _hasScreenSplashed = true;
@@ -190,17 +197,20 @@ public class JumpingFish : MonoBehaviour
         Vector3 surfacePos = new Vector3(fishPos.x, _basePos.y + 0.08f, fishPos.z);
         
         // Havada iz
-        if (fishPos.y > _basePos.y + 0.5f) // Su yüzeyinin üzerindeyse
+        if (fishPos.y > _basePos.y + 0.5f) 
         {
             var airDrop = Instantiate(rippleTrailPrefab, dropPos, Quaternion.identity);
-            airDrop.transform.localScale = Vector3.one * Random.Range(0.15f, 0.35f);
-            Destroy(airDrop, 1.2f);
+            // Sadece sinematik zıplamalarda devasa efekt kullan
+            float s = _isCinematic ? Random.Range(10.5f, 15.5f) : Random.Range(0.4f, 0.9f);
+            airDrop.transform.localScale = Vector3.one * s; 
+            Destroy(airDrop, _isCinematic ? 1.4f : 1.0f);
         }
         
         // Su yüzeyinde iz halkası
         var surfaceDrop = Instantiate(rippleTrailPrefab, surfacePos, Quaternion.identity);
-        surfaceDrop.transform.localScale = Vector3.one * Random.Range(0.3f, 0.6f);
-        Destroy(surfaceDrop, 1.8f);
+        float ss = _isCinematic ? Random.Range(12.0f, 18.2f) : Random.Range(1.2f, 2.2f);
+        surfaceDrop.transform.localScale = Vector3.one * ss; 
+        Destroy(surfaceDrop, _isCinematic ? 2.2f : 1.5f);
     }
 
     /// <summary>
@@ -218,11 +228,14 @@ public class JumpingFish : MonoBehaviour
         splashParent.transform.localPosition = Vector3.zero;
         splashParent.transform.localRotation = Quaternion.identity;
         
-        // Main splash at camera centre
+        // --- KRİTİK TEMİZLİK: Su damlacıklarının peşini bırakması için parent silinmeli ---
+        Destroy(splashParent, 1.6f);
+        
         Vector3 centerPos = camT.position + camT.forward * 0.45f + camT.up * 0.05f;
         var mainSplash = Instantiate(splashFXPrefab, centerPos, camT.rotation, splashParent.transform);
         mainSplash.transform.localScale = Vector3.one * 0.9f;
-        StartCoroutine(DripDown(mainSplash, camT, 0.25f, 3.0f));
+        // Süre 1.1 saniyeye indirildi (Görüşü kapatmaması için)
+        StartCoroutine(DripDown(mainSplash, camT, 0.25f, 1.1f));
         
         // Additional droplets around centre for richer effect
         int dropCount = Random.Range(4, 7);
@@ -234,7 +247,7 @@ public class JumpingFish : MonoBehaviour
             var dropFX = Instantiate(splashFXPrefab, pos, camT.rotation, splashParent.transform);
             dropFX.transform.localScale = Vector3.one * Random.Range(0.35f, 0.75f);
             float dripSpeed = Random.Range(0.18f, 0.5f);
-            float dripDuration = Random.Range(2.0f, 3.5f);
+            float dripDuration = Random.Range(0.9f, 1.3f); // Kısa süreli damlalar
             StartCoroutine(DripDown(dropFX, camT, dripSpeed, dripDuration));
         }
     }
@@ -278,20 +291,25 @@ public class JumpingFish : MonoBehaviour
         if (fx != null) Destroy(fx);
     }
 
-    void BeginJump(Vector3 end, float height, float duration)
+    public void BeginJump(Vector3 endPos, float h, float dur, bool cinematic = false)
     {
-        _isJumping = true;
-        _hasScreenSplashed = false;
         _jStart = transform.position;
-        _jStart.y = _basePos.y;
-        _jEnd = end;
-        _jEnd.y = _basePos.y;
-        _jHeight = height;
-        _jDuration = Mathf.Max(0.2f, duration);
+        _jEnd = endPos;
+        _jHeight = h;
+        _jDuration = dur;
         _jProgress = 0f;
-        _trailTimer = 0f;
-        transform.position = _jStart;
+        _isJumping = true;
+        _isCinematic = cinematic;
+
+        if (cinematic && _coasterTf != null)
+        {
+            // Coaster'a göre yerel koordinatları kaydet
+            _lStart = _coasterTf.InverseTransformPoint(_jStart);
+            _lEnd = _coasterTf.InverseTransformPoint(_jEnd);
+        }
+
         SpawnSplash(_jStart);
+        _hasScreenSplashed = false;
     }
 
     void EndJump()
@@ -324,11 +342,11 @@ public class JumpingFish : MonoBehaviour
         // Kameranın sağ yönü (bu, sağ-sol geçiş ekseni)
         Vector3 camRight = Vector3.Cross(Vector3.up, camForward).normalized;
         
-        // Kameranın önündeki geçiş noktası
-        Vector3 passPoint = refTf.position + camForward * cameraPassDistance;
+        // Kameranın önündeki geçiş noktası (10-12m arası mesafe istendi - Net görüş için 10.5m seçildi)
+        Vector3 passPoint = refTf.position + camForward * 10.5f;
         passPoint.y = _basePos.y;
         
-        // Sağdan sola mı soldan sağa mı? Rastgele veya balığın konumuna göre
+        // Sağa veya sola rastgele meyil (Sıkıcılığı önlemek için)
         float side = Vector3.Dot(transform.position - passPoint, camRight);
         float dir = side >= 0 ? 1f : -1f;
         
@@ -360,10 +378,12 @@ public class JumpingFish : MonoBehaviour
     {
         if (splashFXPrefab == null) return;
         var fx = Instantiate(splashFXPrefab, pos + Vector3.up * 0.15f, Quaternion.identity);
-        // Splash'ı kameraya doğru yönlendir
         if (Camera.main != null) fx.transform.LookAt(Camera.main.transform.position);
-        fx.transform.localScale = Vector3.one * Random.Range(0.8f, 1.3f);
-        Destroy(fx, 2.5f);
+        
+        // Sadece sinematik zıplamalarda büyük splash kullan
+        float s = _isCinematic ? Random.Range(10.5f, 15.5f) : Random.Range(1.0f, 2.5f);
+        fx.transform.localScale = Vector3.one * s; 
+        Destroy(fx, _isCinematic ? 3.5f : 2.0f);
     }
 
     void ScheduleNormalJump() => _nextNormalJumpTime = Random.Range(jumpIntervalMin, jumpIntervalMax);

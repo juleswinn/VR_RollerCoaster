@@ -8,13 +8,13 @@ public class RealisticTrackBuilder : MonoBehaviour
     [SerializeField] private SplineContainer splineContainer;
 
     [Header("Rails")]
-    [SerializeField, Min(0.4f)] private float railGauge = 1.2f;
-    [SerializeField, Min(0.02f)] private float railRadius = 0.08f;
-    [SerializeField, Min(0.5f)] private float railSegmentLength = 1.2f;
+    [SerializeField, Min(0.4f)] private float railGauge = 1.35f;
+    [SerializeField, Min(0.02f)] private float railRadius = 0.085f;
+    [SerializeField, Min(0.5f)] private float railSegmentLength = 0.8f; // Daha sık segment daha yumuşak dönemeçler
 
-    [Header("Sleepers")]
-    [SerializeField, Min(0.5f)] private float sleeperSpacing = 1.8f;
-    [SerializeField] private Vector3 sleeperSize = new Vector3(2.1f, 0.12f, 0.26f);
+    [Header("Sleepers / Ties")]
+    [SerializeField, Min(0.1f)] private float sleeperSpacing = 0.5f; // Çok daha sık "ties"
+    [SerializeField] private Vector3 sleeperSize = new Vector3(1.6f, 0.06f, 0.06f); // İnce boru tipi
 
     [Header("Supports")]
     [SerializeField, Min(1f)] private float supportSpacing = 7f;
@@ -121,7 +121,7 @@ public class RealisticTrackBuilder : MonoBehaviour
 
             EvaluateTrackFrame(t, out Vector3 position, out _, out Vector3 up, out Vector3 right);
             
-            Vector3 centerSpine = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f);
+            Vector3 centerSpine = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f + 0.15f);
 
             Vector3 left = position - right * (railGauge * 0.5f);
             Vector3 rightRail = position + right * (railGauge * 0.5f);
@@ -130,7 +130,7 @@ public class RealisticTrackBuilder : MonoBehaviour
             {
                 CreateTubeSegment(prevLeft.Value, left, railRadius, railsRoot, "RailLeft", railMaterial);
                 CreateTubeSegment(prevRight.Value, rightRail, railRadius, railsRoot, "RailRight", railMaterial);
-                CreateTubeSegment(prevCenter.Value, centerSpine, railRadius * 1.6f, railsRoot, "RailSpine", railMaterial);
+                CreateTubeSegment(prevCenter.Value, centerSpine, railRadius * 2.2f, railsRoot, "RailSpine", railMaterial);
             }
 
             prevLeft = left;
@@ -141,24 +141,26 @@ public class RealisticTrackBuilder : MonoBehaviour
 
     private void BuildSleepers(float length)
     {
+        // Modern coasterlarda "sleeper" yerine "ties" (bağlantı elemanları) kullanılır.
         int sleeperCount = Mathf.Max(2, Mathf.CeilToInt(length / sleeperSpacing));
 
         for (int i = 0; i <= sleeperCount; i++)
         {
             float t = i / (float)sleeperCount;
 
-            EvaluateTrackFrame(t, out Vector3 position, out Vector3 forward, out Vector3 up, out _);
+            EvaluateTrackFrame(t, out Vector3 position, out Vector3 forward, out Vector3 up, out Vector3 right);
 
-            GameObject sleeper = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (Application.isPlaying) Destroy(sleeper.GetComponent<Collider>()); else DestroyImmediate(sleeper.GetComponent<Collider>());
-            sleeper.name = $"Sleeper_{i:0000}";
-            sleeper.transform.SetParent(sleepersRoot, true);
+            // Merdiven basamağı tipi (horizontal cross-tie)
+            Vector3 leftRailPos = position - right * (railGauge * 0.5f);
+            Vector3 rightRailPos = position + right * (railGauge * 0.5f);
+            Vector3 spinePos = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f + 0.15f);
 
-            sleeper.transform.position = position - up * (railRadius + sleeperSize.y * 0.5f);
-            sleeper.transform.rotation = Quaternion.LookRotation(forward, up);
-            sleeper.transform.localScale = sleeperSize;
-
-            ApplyMaterial(sleeper, sleeperMaterial);
+            // Horizontal tie (Sol-Sağ arası)
+            CreateTubeSegment(leftRailPos, rightRailPos, sleeperSize.y, sleepersRoot, $"Tie_Horiz_{i:0000}", sleeperMaterial);
+            
+            // Triangular Struts (Omurgaya bağlantılar)
+            CreateTubeSegment(leftRailPos, spinePos, sleeperSize.y * 0.8f, sleepersRoot, $"Strut_Left_{i:0000}", sleeperMaterial);
+            CreateTubeSegment(rightRailPos, spinePos, sleeperSize.y * 0.8f, sleepersRoot, $"Strut_Right_{i:0000}", sleeperMaterial);
         }
     }
 
@@ -175,7 +177,7 @@ public class RealisticTrackBuilder : MonoBehaviour
             float baseY = ResolveSupportBaseHeight(position);
             Vector3 basePoint = new Vector3(position.x, baseY, position.z);
             
-            Vector3 supportTop = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f);
+            Vector3 supportTop = position - up * (railRadius + sleeperSize.y + supportRadius * 0.5f + 0.15f);
 
             if (supportTop.y - basePoint.y < 0.75f)
                 continue;

@@ -81,17 +81,23 @@ public class FireworksFinale : MonoBehaviour
 
         for (int i = 0; i < totalBursts; i++)
         {
-            // Fişeklerin KAFALARA DEĞİL, İSTASYONUN (BİTİŞ NOKTASININ) üzerine patlamasını garanti altına alıyoruz.
-            Vector3 refPos = endPos != Vector3.zero ? endPos : transform.position;
-
+            // KAMERA ODAKLI GARANTİ ÇÖZÜM: Havai fişekler istasyonun değil, DOĞRUDAN KULLANICININ BAKIŞ AÇISININ
+            // içine (tam önüne) spawn olacak. Gözükmeme ihtimali sıfır.
+            Vector3 refPos = _target != null ? _target.position : transform.position;
             Vector3 camRight = _target != null ? _target.right : Vector3.right;
+            Vector3 camForward = _target != null ? _target.forward : Vector3.forward;
+            
+            camForward.y = 0; 
+            camForward.Normalize();
+
             float side = (i % 2 == 0) ? -sideOffset : sideOffset;
             
-            // X-Z ekseninde BİTİŞ İSTASYONUNUN 10-20m ilerisi, Y ekseninde (gökyüzü) 80-130m yukarısı
+            // Kameranın 60-90m ilerisinde (tam önünde), 30-60m hafif yukarısında. SADECE GÖRÜŞ AÇISI İÇİ.
             Vector3 launchPos = refPos
+                + camForward * Random.Range(60f, 95f)
                 + camRight * side
-                + Vector3.up * Random.Range(launchHeight * 1.3f, launchHeight * 1.8f)
-                + Random.insideUnitSphere * 25f; // Havada dairesel hafif rastgele bir alana yayılma
+                + Vector3.up * Random.Range(30f, 60f)
+                + Random.insideUnitSphere * 15f;
 
 
             if (fireworkPrefab != null)

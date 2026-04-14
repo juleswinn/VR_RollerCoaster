@@ -7,7 +7,7 @@ using UnityEngine;
 public class BoidFlockTrigger : MonoBehaviour
 {
     [Header("Trigger Settings")]
-    public float triggerRadius = 200f;    // Tetikleme mesafesi
+    public float triggerRadius = 40f;     // Tetikleme mesafesi ÇOK kısaltıldı, tam üstünden geçerken!
     public float panicSpeed = 8f;         // Panik hızı
     public float normalSpeed = 2f;        // Normal hız
     public float panicSoaring = 2.5f;     // Panik dönüş hızı

@@ -19,26 +19,63 @@ public class FighterOvertakeAI : MonoBehaviour
     private float _timer = 0f;
     private Vector3 _velocity;
 
+    [Header("Audio")]
+    public AudioClip jetSound;
+
     void Start()
     {
         SetVisibility(false);
         var cam = Camera.main;
         if (cam != null) _target = cam.transform;
+        
+        if (jetSound != null)
+        {
+            AudioSource src = gameObject.AddComponent<AudioSource>();
+            src.clip = jetSound;
+            src.loop = true;
+            src.spatialBlend = 1f;
+            src.rolloffMode = AudioRolloffMode.Custom; // Özel mesafe kodu için
+            src.dopplerLevel = 2.8f; // Gürültü hissi için artırıldı
+            src.volume = 0f;
+            src.playOnAwake = false; // We start it when the jet actuates
+        }
     }
 
     void Update()
     {
+        if (_target == null) return;
+
         if (!_started)
         {
-            _timer += Time.deltaTime;
-            if (_timer >= startDelay)
+            float approachDist = Vector3.Distance(transform.position, _target.position);
+            // Sadece yaklaşınca çalışsın ki arkada boş yere geçip gitmesin
+            if (approachDist < 800f)
             {
-                _started = true;
-                SetVisibility(true);
-                // Başlangıç hızı
-                _velocity = transform.forward * speed;
+                _timer += Time.deltaTime;
+                if (_timer >= startDelay)
+                {
+                    _started = true;
+                    SetVisibility(true);
+                    _velocity = transform.forward * speed;
+                    
+                    // Sesi tam hareket anında tetikle
+                    AudioSource srcc = GetComponent<AudioSource>();
+                    if (srcc != null) {
+                        srcc.Play();
+                    }
+                }
             }
             else return;
+        }
+
+        // Mesafe bazlı manuel ses volümü yönetimi
+        AudioSource src = GetComponent<AudioSource>();
+        if (src != null && _started)
+        {
+            float d = Vector3.Distance(transform.position, _target.position);
+            // 600 metrede ses 0.15, 100 metreye geldiğinde 1.0 (Dramatik peak)
+            float vol = Mathf.Clamp01(1.0f - ((d - 100f) / 500f));
+            src.volume = Mathf.Max(vol, 0.15f); // Minimum 0.15 — her zaman duyulur
         }
 
         // --- İLERLEME (DOSDOĞRU - Straight Flight) ---
@@ -54,7 +91,7 @@ public class FighterOvertakeAI : MonoBehaviour
         float dist = Vector3.Distance(transform.position, _target.position);
 
         // 7D Sinema için sarsıntı (SimpleEnvironmentBuilder'dan gelen ayarı kullan)
-        if (!_shaken && dot > 3f && dist < 300f) 
+        if (!_shaken && _started && dot > 3f && dist < 300f) 
         {
             _shaken = true;
             if (CoasterShakeEffect.Instance != null && shakeIntensity > 0.05f)

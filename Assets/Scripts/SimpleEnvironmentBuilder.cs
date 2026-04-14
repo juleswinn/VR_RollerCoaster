@@ -85,6 +85,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         SpawnLivingBirdsController();
         CreateAmbientAircraft(); // Yeni uçaklar eklendi
         SpawnFighterFlybys();    // Savaş uçakları ve yakın geçişler
+        SpawnBoidFlocks();       // Kuş sürüleri (NVBoids)
+        CreateCrystalCaveTunnel(); // Kristal mağara tüneli
+        SpawnFinaleFireworks();  // Havai fişek finali
+        SpawnSpareCoasterCart(); // Yedek roller coaster
 
         // Bulutlar tamamen devre dışı — PrototypeClouds oluşturulmayacak
         {
@@ -254,6 +258,22 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             // Sarsıntı efektini kameraya ekle
             if (c.gameObject.GetComponent<CoasterShakeEffect>() == null)
                 c.gameObject.AddComponent<CoasterShakeEffect>();
+                
+            // Roller Coaster sesini ekle
+            AudioSource asc = c.gameObject.GetComponent<AudioSource>();
+            if (asc == null) asc = c.gameObject.AddComponent<AudioSource>();
+            
+            AudioClip coasterSnd = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/438768__craigsmith__g47-19-small-train-rolling-on-track.wav");
+            if (coasterSnd != null) {
+                asc.clip = coasterSnd;
+                asc.loop = true;
+                asc.spatialBlend = 0f; // İçinde olduğu için 2D ambient ses
+                asc.volume = 0f; 
+                asc.playOnAwake = false; // Coaster scripti hızına göre açacak
+            }
+            
+            if (c.gameObject.GetComponent<CoasterAudioController>() == null)
+                c.gameObject.AddComponent<CoasterAudioController>();
         }
 
         Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
@@ -278,7 +298,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             "Assets/Low Poly Stones", "Assets/YughuesFreeBushes2018",
             "Assets/BackgroundMountainFree",
             "Assets/Low Poly Tree Mega Pack by MysticForge",
-            "Assets/NatureStarterKit2", "Assets/MamkinEnthusiast"
+            "Assets/NatureStarterKit2", "Assets/MamkinEnthusiast",
+            "Assets/Mine", "Assets/#NVJOB Boids", "Assets/Blue Olive Studio"
         };
         foreach (string folder in matFolders)
         {
@@ -352,11 +373,11 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Texture2D gt = null;
         Texture2D nrm = null;
 #if UNITY_EDITOR
-        gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Diffuse.png");
-        nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Normal.png");
+        gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground4/ground4_Diffuse.tga");
+        nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground4/ground4_Normal.tga");
 
-        if (gt == null) gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground3/ground3_Diffuse.tga");
-        if (nrm == null) nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground3/ground3_Normal.tga");
+        if (gt == null) gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Diffuse.png");
+        if (nrm == null) nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Normal.png");
 #endif
         if (gt == null) gt = CreateSolidColorTexture(64, new Color(0.15f, 0.35f, 0.12f, 1f));
 
@@ -450,8 +471,26 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         GameObject treesRoot = new GameObject("PrototypeTrees");
         treesRoot.transform.SetParent(transform, false);
 
-        bool hasCustom = customTreePrefabs != null && customTreePrefabs.Length > 0;
+        List<GameObject> combinedTrees = new List<GameObject>();
+        if (customTreePrefabs != null) combinedTrees.AddRange(customTreePrefabs);
+        
+#if UNITY_EDITOR
+        string[] extraTrees = new string[] {
+            "Assets/NatureStarterKit2/Nature/tree01.prefab",
+            "Assets/NatureStarterKit2/Nature/tree02.prefab",
+            "Assets/NatureStarterKit2/Nature/tree03.prefab",
+            "Assets/NatureStarterKit2/Nature/tree04.prefab",
+            "Assets/ALP_Assets/Big Oak Tree FREE/Prefabs/PoplarTree001_pr.prefab",
+            "Assets/ALP_Assets/Big Oak Tree FREE/Prefabs/OakBigTree01_pr.prefab"
+        };
+        foreach(var p in extraTrees) {
+            GameObject g = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(p);
+            if(g!=null) combinedTrees.Add(g);
+        }
+#endif
+        bool hasCustom = combinedTrees.Count > 0;
         if (!hasCustom) return;
+        GameObject[] finalTrees = combinedTrees.ToArray();
 
         List<Vector3> trackPoints = GetTrackExclusionPoints();
         Random.State saved = Random.state;
@@ -467,8 +506,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             clusters[i] = new Vector3(Mathf.Cos(ca) * cd, 0f, Mathf.Sin(ca) * cd);
         }
 
-        // Ağaç boyutu gerçekçiliği için katsayı
-        float globalTreeScale = 2.5f;
+        // Ağaç boyutu gerçekçiliği için katsayı (Hayvanlarla orantılı küçültüldü)
+        float globalTreeScale = 0.55f;
 
         // Hem rastgele hem de ormanlık bölgede ağaçlar
         int spawnCount = hasCustom ? 2500 : 0; // Gameobject olduğu için sayıyı sınırlı tuttuk, ancak boyutlarını büyük tutarak alanı dolduracağız.
@@ -496,7 +535,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
             bp.y = GetTerrainY(bp);
 
-            GameObject prefab = customTreePrefabs[Random.Range(0, customTreePrefabs.Length)];
+            GameObject prefab = finalTrees[Random.Range(0, finalTrees.Length)];
             if (prefab == null) continue;
 
             GameObject tree;
@@ -705,6 +744,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_Multiple.prefab") ??
             UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_A.prefab") ??
             UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Hit_01.prefab");
+            
+        AudioClip fishJumpSnd = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/591348__paulprit__hook-and-release.wav");
 #endif
         for (int i = 0; i < 12; i++)
         {
@@ -739,31 +780,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 fish.transform.localScale = prefab.transform.localScale * Random.Range(2.5f, 4f);
             }
 #endif
-            if (fish == null)
-            {
-                fish = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                fish.name = "FishPrimitive";
-                fish.transform.SetParent(root.transform, true);
-                fish.transform.localScale = new Vector3(1.2f, 0.7f, 2.5f);
-                SetColor(fish, new Color(0.2f, 0.6f, 0.9f));
-                Object.DestroyImmediate(fish.GetComponent<Collider>());
-            }
+            if (fish == null) continue;
             fish.transform.position = fp;
 
             var jumper = fish.AddComponent<JumpingFish>();
-            jumper.jumpHeight = Random.Range(6.5f, 11f); 
-            jumper.jumpDistance = Random.Range(10f, 15f);
-            jumper.jumpIntervalMin = Random.Range(5f, 8f);
-            jumper.jumpIntervalMax = Random.Range(9f, 15f);
-            jumper.cinematicHeightMultiplier = 3.5f;
-            jumper.cinematicDistanceMultiplier = 2.5f;
-            jumper.coasterTriggerDistance = 85f;
-            jumper.cameraPassDistance = 5.0f; // Kameranın tam önünden geçmesi için (Profesyonel ayar)
-            jumper.burstJumpCount = 5;
-            jumper.burstJumpDelay = 0.45f;
-            jumper.burstCooldown = 12f;
 #if UNITY_EDITOR
             jumper.splashFXPrefab = fishSplashPrefab;
+            jumper.jumpSound = fishJumpSnd;
 #endif
         }
 
@@ -777,6 +800,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Water_Splash_A.prefab");
         GameObject boatWakePrefab =
             UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NamuFX/StylizedWaterEffects/Prefabs/Bubbles_Vertical_Loop.prefab");
+            
+        AudioClip boatEngineSnd = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/538436__robinhood76__09405-slow-motor-boat-departure.wav");
 
         // ── Alstra Infinite Tekneler ──────────────────────────────────
         var boatPrefabList = new System.Collections.Generic.List<GameObject>();
@@ -820,6 +845,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
                 // --- RollerCoasterBoatAI Bağla ---
                 var boatAI = boatObj.AddComponent<RollerCoasterBoatAI>();
+                
+                // Fix RigidBody 'Concave Mesh' error by enforcing convex on all child mesh colliders
+                MeshCollider[] mcs = boatObj.GetComponentsInChildren<MeshCollider>();
+                foreach (var mc in mcs) { mc.convex = true; }
                 boatAI.lakeCenter = center;
                 boatAI.patrolRadius = radius * 0.82f;
                 boatAI.normalSpeed = Random.Range(3f, 6f);
@@ -828,6 +857,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 boatAI.splashPrefab = boatSplashPrefab;
                 boatAI.wakePrefab = boatWakePrefab;
                 boatAI.waterY = center.y + 0.15f;
+                boatAI.engineSound = boatEngineSnd;
 
                 // --- TEKNE İÇİ NPC'LER (Nolant Entegrasyonu) ---
                 if (npcPrefabList.Count > 0)
@@ -842,25 +872,16 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                         GameObject npcPrefab = npcPrefabList[Random.Range(0, npcPrefabList.Count)];
                         GameObject npcObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(npcPrefab, boatObj.transform);
 
-                        // İnsan boyutunu yaklaşık 2.5 katına çıkardık (Daha gerçekçi yetişkin boyutu)
-                        float humanScale = (1.0f / boatScale) * 2.65f;
+                        // İnsan boyutunu düşürdük (orantılı düzeyde)
+                        float humanScale = (1.0f / boatScale) * 1.85f;
                         npcObj.transform.localScale = Vector3.one * humanScale;
 
-                        // Birbirlerine veya tekneye değmemeleri için aralıkları genişlettik (0.15 -> 0.55)
-                        float npcOffsetX = (n - (npcCount - 1) * 0.5f) * 0.55f;
-                        float npcOffsetZ = (npcCount > 1) ? (n * 0.3f - 0.15f) : 0f;
+                        // Birbirlerine değmemeleri için aralıklar
+                        float npcOffsetX = (n - (npcCount - 1) * 0.5f) * 0.85f;
+                        float npcOffsetZ = (npcCount > 1) ? (n * 0.6f - 0.3f) : 0f;
 
-                        Vector3 rayStart = new Vector3(npcOffsetX, 1.5f, npcOffsetZ);
-                        Vector3 localPos = rayStart;
-                        if (Physics.Raycast(boatObj.transform.TransformPoint(rayStart), -boatObj.transform.up, out RaycastHit hit, 2.5f))
-                        {
-                            localPos = boatObj.transform.InverseTransformPoint(hit.point);
-                            localPos.y += 0.05f; // Hafifçe yukarı (Clipping önleme)
-                        }
-                        else
-                        {
-                            localPos = new Vector3(npcOffsetX, boatDeckY, npcOffsetZ);
-                        }
+                        // Raycast ile çatıda kalmalarını engellemek için doğrudan güverte yüksekliğini kullan
+                        Vector3 localPos = new Vector3(npcOffsetX, boatDeckY, npcOffsetZ);
 
                         npcObj.transform.localPosition = localPos;
                         npcObj.transform.localRotation = Quaternion.Euler(0, Random.Range(-30f, 30f), 0);
@@ -917,21 +938,9 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     fish.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                 }
             }
-            if (fish == null)
-            {
-                fish = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                fish.name = "FishPrimitive";
-                fish.transform.SetParent(pondRoot, true);
-                fish.transform.localScale = new Vector3(0.5f, 0.3f, 1.1f);
-                SetColor(fish, new Color(0.2f, 0.6f, 0.9f));
-                Object.DestroyImmediate(fish.GetComponent<Collider>());
-            }
+            if (fish == null) continue;
             fish.transform.position = fishPos;
             var jumper = fish.AddComponent<JumpingFish>();
-            jumper.jumpHeight = Random.Range(1.2f, 3.0f);
-            jumper.jumpDistance = Random.Range(1.5f, 4.0f);
-            jumper.jumpIntervalMin = Random.Range(1f, 3f);
-            jumper.jumpIntervalMax = Random.Range(4f, 8f);
         }
 
         // 2. GOLET HAYVANLARI – dogal dagitim
@@ -1642,9 +1651,9 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(fighterPath);
         if (prefab == null) return;
 
-        // --- SIRALI SEKANSLAR: Başlangıç (0.1 T), Orta (0.5 T) ve Bitiş (0.9 T) ---
-        float[] sequences = { 0.12f, 0.52f, 0.90f };
-        int[] jetCounts = { 3, 1, 2 }; // Start: 3, Mid: 1, End: 2
+        // --- SIRALI SEKANSLAR: Başlangıç (0.15), Orta Sonu (0.75) ve Bitiş (0.95) ---
+        float[] sequences = { 0.15f, 0.75f, 0.95f };
+        int[] jetCounts = { 3, 3, 3 }; // Üçlü jet gruplaması
 
         for (int s = 0; s < sequences.Length; s++)
         {
@@ -1659,29 +1668,518 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 // --- ARKADAN GELİŞ HESABI ---
                 float backT = (seqT - 0.08f + 1f) % 1f; 
                 Vector3 spawnPos = sc.EvaluatePosition(backT);
-                Vector3 spawnTangent = Vector3.Normalize(sc.EvaluateTangent(backT));
-                Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.up, spawnTangent));
+                Vector3 origTangent = sc.EvaluateTangent(backT);
+                // Uçağın burun üstü gölete dalmaması için Y eksenini sıfırla (Dümdüz yatay uçuş)
+                Vector3 flatTangent = Vector3.Normalize(new Vector3(origTangent.x, 0, origTangent.z));
+                Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.up, flatTangent));
 
-                // Gecikmeli Başlangıç (Start: 8s, Mid: 22s, End: 42s civarı)
-                float baseDelay = (s == 0) ? 8.0f : (s == 1 ? 22.0f : 42.0f);
-                float jetDelay = baseDelay + (i * 2.5f); 
+                // Grup içi gecikme: 10s baz gecikme + grup arası 4.5s
+                // Böylece Play'e basıldıktan 10-12 sn sonra ilk jet geçer
+                float jetDelay = 10f + (i * 4.5f); 
 
-                // Kameranın görüş açısında daha net görünmeleri için mesafeyi 48-52 metreye çektik
-                float sideOffset = (i == 1) ? 48f : (i == 0 ? -50f : 52f); 
-                Vector3 flyPos = spawnPos + Vector3.up * 16f + right * sideOffset;
+                // Kameranın görüş açısında daha net görünmeleri için ve raya girmemeleri için ayarlanan offsetler
+                float sideOffset = (i == 1) ? 58f : (i == 0 ? -66f : 68f); 
+                Vector3 flyPos = spawnPos + Vector3.up * 85f + right * sideOffset;
 
                 f.transform.position = flyPos;
-                f.transform.rotation = Quaternion.LookRotation(spawnTangent);
+                f.transform.rotation = Quaternion.LookRotation(flatTangent);
                 f.transform.localScale = Vector3.one * 5.8f;
 
                 var ai = f.AddComponent<FighterOvertakeAI>();
                 ai.speed = 310f; 
                 ai.startDelay = jetDelay;
                 ai.shakeIntensity = 0.42f; // Daha tok bir sarsıntı
+                ai.jetSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/324370__klangfabrik__f15-eagle-flyover.wav");
                 
                 SetColor(f, new Color(0.2f, 0.22f, 0.25f)); 
                 FixPinkMaterials(f);
             }
+        }
+#endif
+    }
+
+    // ================================================================
+    //  PHASE 5: CINEMATIC ADDITIONS
+    // ================================================================
+
+    private void SpawnBoidFlocks()
+    {
+        Transform existing = transform.Find("BoidFlocks");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+
+        GameObject root = new GameObject("BoidFlocks");
+        root.transform.SetParent(transform, false);
+
+#if UNITY_EDITOR
+        var sc = FindFirstObjectByType<UnityEngine.Splines.SplineContainer>();
+        if (sc == null) return;
+        
+        string boidPath = "Assets/#NVJOB Boids/Simple Boids/Prefabs/Bird/Bird Pref W.prefab";
+        GameObject boidPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(boidPath);
+        if (boidPrefab == null) boidPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/#NVJOB Boids/Simple Boids/Prefabs/Bird/NVBoids Bird.prefab");
+        if (boidPrefab == null) return;
+
+        // Kuş prefab materyallerini URP'ye dönüştür (pembe görünümü engeller)
+        FixPinkMaterials(boidPrefab);
+        // Prefab'ın alt child'larındaki materyalleri de kalıcı olarak düzelt
+        Renderer[] boidRenderers = boidPrefab.GetComponentsInChildren<Renderer>(true);
+        Shader urpLitShader = Shader.Find("Universal Render Pipeline/Lit");
+        if (urpLitShader != null)
+        {
+            foreach (var br in boidRenderers)
+            {
+                Material[] mats = br.sharedMaterials;
+                for (int m = 0; m < mats.Length; m++)
+                {
+                    if (mats[m] == null) continue;
+                    string sn = mats[m].shader != null ? mats[m].shader.name : "";
+                    if (!sn.StartsWith("Universal Render Pipeline"))
+                    {
+                        Color col = Color.white;
+                        if (mats[m].HasProperty("_Color")) col = mats[m].GetColor("_Color");
+                        if (mats[m].HasProperty("_BaseColor")) col = mats[m].GetColor("_BaseColor");
+                        Texture tex = null;
+                        if (mats[m].HasProperty("_MainTex")) tex = mats[m].GetTexture("_MainTex");
+                        if (tex == null && mats[m].HasProperty("_BaseMap")) tex = mats[m].GetTexture("_BaseMap");
+                        mats[m].shader = urpLitShader;
+                        if (mats[m].HasProperty("_BaseColor")) mats[m].SetColor("_BaseColor", col);
+                        if (tex != null && mats[m].HasProperty("_BaseMap")) mats[m].SetTexture("_BaseMap", tex);
+                        if (mats[m].HasProperty("_Color")) mats[m].SetColor("_Color", col);
+                        UnityEditor.EditorUtility.SetDirty(mats[m]);
+                    }
+                }
+            }
+        }
+
+        float[] spawnTs = { 0.20f, 0.40f, 0.65f }; // Kuslarin yogun agacliklara denk geldigi noktalar
+        int i = 0;
+        foreach (float t in spawnTs)
+        {
+            Vector3 pos = sc.EvaluatePosition(t);
+            pos.y += 25f; // Havada
+            
+            GameObject flockObj = new GameObject("BoidFlock_" + i);
+            flockObj.transform.SetParent(root.transform, false);
+            flockObj.transform.position = pos;
+
+            NVBoids boids = flockObj.AddComponent<NVBoids>();
+            boids.birdPref = boidPrefab;
+            boids.birdsNum = Random.Range(20, 35);
+            boids.flockNum = 1;
+            boids.birdSpeed = 3f;
+            boids.soaring = 0.8f;
+            boids.scaleRandom = new Vector2(2f, 3.5f); // Rahat gorunmesi icin buyuk
+            
+            boids.danger = false; // Kendi trigger'imiz ile yonetecegiz
+
+            flockObj.AddComponent<BoidFlockTrigger>();
+            i++;
+        }
+#endif
+    }
+
+    private void CreateCrystalCaveTunnel()
+    {
+        Transform existing = transform.Find("CrystalCaveTunnel");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+
+        GameObject root = new GameObject("CrystalCaveTunnel");
+        root.transform.SetParent(transform, false);
+
+#if UNITY_EDITOR
+        var sc = FindFirstObjectByType<UnityEngine.Splines.SplineContainer>();
+        if (sc == null) return;
+
+        GameObject[] tunnelPrefabs = {
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mine/Prefabs/Base/Tunnel1.prefab"),
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mine/Prefabs/Base/Tunnel2.prefab"),
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mine/Prefabs/Base/Tunnel3.prefab")
+        };
+        GameObject rampDown = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mine/Prefabs/Base/RampDown.prefab");
+        GameObject rampUp = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mine/Prefabs/Base/RampUp.prefab");
+        GameObject lantern = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mine/Prefabs/Props/Lantern.prefab");
+        
+        if (tunnelPrefabs[0] == null) return;
+
+        // ── Tünel mesh boyutlarını oku ─────────────────────────────────
+        MeshFilter tunnelMF = tunnelPrefabs[0].GetComponentInChildren<MeshFilter>();
+        float meshZSize = 1f;   // Prefab'ın orijinal Z uzunluğu
+        float meshYSize = 1f;   // Prefab'ın orijinal Y yüksekliği
+        float meshCenterY = 0f; // Mesh pivot'unun Y merkezi
+        if (tunnelMF != null && tunnelMF.sharedMesh != null)
+        {
+            Bounds mb = tunnelMF.sharedMesh.bounds;
+            meshZSize = Mathf.Max(mb.size.z, 0.01f);
+            meshYSize = Mathf.Max(mb.size.y, 0.01f);
+            meshCenterY = mb.center.y;
+        }
+
+        // ── Kristal prefabları ─────────────────────────────────────────
+        string[] crystalDirs = {
+            "Assets/Blue Olive Studio/Crystals set/URP assets/Prefabs -URP/Prefabs 1K-URP"
+        };
+        List<GameObject> crystals = new List<GameObject>();
+        if (UnityEditor.AssetDatabase.IsValidFolder(crystalDirs[0]))
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:GameObject", crystalDirs);
+            foreach (string guid in guids)
+            {
+                crystals.Add(UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(UnityEditor.AssetDatabase.GUIDToAssetPath(guid)));
+            }
+        }
+
+        // ── Tünel parametreleri ────────────────────────────────────────
+        float startT = 0.38f;
+        float endT   = 0.57f;
+        int numSegments = 40;       // Çok fazla segment = mükemmel eğri takibi
+        float tunnelScaleX = 5.5f;  // Genişlik
+        float tunnelScaleY = 5.5f;  // Yükseklik
+        int fadeSegments = 5;       // Giriş/çıkışta gradüel büyüme
+
+        // ── Spline örnekle: pozisyon, tanjant ve yukarı vektörü ───────
+        Vector3[] positions = new Vector3[numSegments];
+        Vector3[] tangents  = new Vector3[numSegments];
+        Vector3[] upVectors = new Vector3[numSegments];
+        for (int i = 0; i < numSegments; i++)
+        {
+            float t = Mathf.Lerp(startT, endT, (float)i / (numSegments - 1));
+            positions[i] = sc.EvaluatePosition(t);
+            tangents[i]  = sc.EvaluateTangent(t);
+            upVectors[i] = sc.EvaluateUpVector(t);
+        }
+
+        // ── Segment döngüsü ───────────────────────────────────────────
+        for (int i = 0; i < numSegments; i++)
+        {
+            // ---- Yumuşatılmış tanjant (5 komşu ortalaması) ----
+            Vector3 smoothTan = Vector3.zero;
+            int nCount = 0;
+            for (int n = Mathf.Max(0, i - 2); n <= Mathf.Min(numSegments - 1, i + 2); n++)
+            {
+                smoothTan += tangents[n];
+                nCount++;
+            }
+            smoothTan /= nCount;
+            smoothTan = Vector3.Normalize(smoothTan);
+            if (smoothTan == Vector3.zero) smoothTan = Vector3.forward;
+
+            // ---- Rotasyon ----
+            Quaternion rot = Quaternion.LookRotation(smoothTan, Vector3.up);
+
+            // ---- Dinamik Z ölçeği: komşu örnekler arası mesafe ----
+            float worldGap;
+            if (i < numSegments - 1)
+                worldGap = Vector3.Distance(positions[i], positions[i + 1]);
+            else
+                worldGap = Vector3.Distance(positions[i - 1], positions[i]);
+
+            float zScale = (worldGap / meshZSize) * 1.8f; // Daha fazla örtüşme = sıfır boşluk
+
+            // ---- Prefab seç ----
+            GameObject prefabToUse = tunnelPrefabs[Random.Range(0, tunnelPrefabs.Length)];
+            if (i == 0 && rampDown != null) prefabToUse = rampDown;
+            if (i == numSegments - 1 && rampUp != null) prefabToUse = rampUp;
+
+            GameObject segment = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefabToUse);
+            segment.transform.SetParent(root.transform, false);
+
+            // ---- SPLİNE UP VEKTÖRÜ İLE Y OFSETİ ----
+            // Spline'ın kendi yukarı vektörünü kullanarak tüneli
+            // eğime MİLİMETRİK uyumlu konumlandır.
+            // upDir: spline'ın o noktadaki gerçek "yukarı" yönü
+            Vector3 upDir = Vector3.up; // Fallback
+            {
+                Vector3 sumUp = Vector3.zero;
+                int uCount = 0;
+                for (int u = Mathf.Max(0, i - 2); u <= Mathf.Min(numSegments - 1, i + 2); u++)
+                {
+                    sumUp += upVectors[u];
+                    uCount++;
+                }
+                if (uCount > 0) upDir = Vector3.Normalize(sumUp / uCount);
+                if (upDir == Vector3.zero) upDir = Vector3.up;
+            }
+
+            // Tünel merkezini rayın biraz üzerine koy: ray alt %35'te geçsin
+            float yOffset = (-meshCenterY + meshYSize * 0.15f) * tunnelScaleY;
+            Vector3 pos = positions[i] + upDir * yOffset;
+
+            // ---- Giriş/çıkış huni efekti ----
+            float scaleMul = 1f;
+            if (i < fadeSegments)
+                scaleMul = Mathf.Lerp(0.5f, 1f, (float)i / fadeSegments);
+            else if (i >= numSegments - fadeSegments)
+                scaleMul = Mathf.Lerp(0.5f, 1f, (float)(numSegments - 1 - i) / fadeSegments);
+
+            float finalScaleX = tunnelScaleX * scaleMul;
+            float finalScaleY = tunnelScaleY * scaleMul;
+
+            segment.transform.position   = pos;
+            segment.transform.rotation   = rot;
+            segment.transform.localScale = new Vector3(finalScaleX, finalScaleY, zScale);
+
+            FixPinkMaterials(segment);
+
+            // ── Kristaller ────────────────────────────────────────────
+            // worldInnerR = 1.5 = tünel iç duvar yüzeyi
+            // Tünel meshYSize*0.5*5.5 = ~2.75 dış yarıçap
+            // İç boşluk ~%55 = 1.5 yarıçap
+            float worldInnerR = 1.5f * scaleMul;
+
+            if (crystals.Count > 0 && i > fadeSegments && i < numSegments - fadeSegments)
+            {
+                // Yoğunluk azaltıldı, önceden 18-30'du, tüneli çok fazla dolduruyordu.
+                int cCount = Random.Range(4, 9);
+                int totalSpawned = 0;
+                for (int c = 0; c < cCount; c++)
+                {
+                    GameObject cObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(
+                        crystals[Random.Range(0, crystals.Count)]);
+                    cObj.transform.SetParent(root.transform, false);
+
+                    float zone = Random.value;
+                    Vector3 crystalWorldPos;
+                    Quaternion crystalWorldRot;
+
+                    Vector3 tRight = rot * Vector3.right;
+                    Vector3 tUp    = rot * Vector3.up;
+                    Vector3 tFwd   = rot * Vector3.forward;
+
+                    float zOff = Random.Range(-worldGap * 0.4f, worldGap * 0.4f);
+                    
+                    // Önemli Değişiklik: Tünel merkezi (pos) yerine, direkt COASTER YOLUNU (trackPos) baz alıyoruz.
+                    // Böylece tünel mesh'i ne kadar yukarıda olursa olsun, kristaller her zaman coaster'ın etrafında olur.
+                    Vector3 trackPos = positions[i] + tFwd * zOff;
+
+                    if (zone < 0.25f)
+                    {
+                        // ── ZEMİN ── 
+                        crystalWorldPos = trackPos
+                            - tUp * Random.Range(3.5f, 4.5f)
+                            + tRight * Random.Range(-4.0f, 4.0f);
+                        crystalWorldRot = rot * Quaternion.Euler(
+                            Random.Range(-15f, 15f),
+                            Random.Range(0f, 360f),
+                            Random.Range(-15f, 15f));
+                    }
+                    else if (zone < 0.45f)
+                    {
+                        // ── SOL DUVAR ── (Raydan 10 - 15 metre sol — tünel duvarına TAM gömülmüş)
+                        crystalWorldPos = trackPos
+                            - tRight * Random.Range(10.0f, 15.0f)
+                            + tUp * Random.Range(2.0f, 6.0f);
+                        crystalWorldRot = rot * Quaternion.Euler(
+                            Random.Range(-15f, 15f),
+                            Random.Range(0f, 360f),
+                            70f + Random.Range(-15f, 15f));
+                    }
+                    else if (zone < 0.65f)
+                    {
+                        // ── SAĞ DUVAR ── (Raydan 10 - 15 metre sağ — tünel duvarına TAM gömülmüş)
+                        crystalWorldPos = trackPos
+                            + tRight * Random.Range(10.0f, 15.0f)
+                            + tUp * Random.Range(2.0f, 6.0f);
+                        crystalWorldRot = rot * Quaternion.Euler(
+                            Random.Range(-15f, 15f),
+                            Random.Range(0f, 360f),
+                            -70f + Random.Range(-15f, 15f));
+                    }
+                    else
+                    {
+                        // ── TAVAN (sarkıçlar) ── (Raydan 10 - 14 metre yukarı)
+                        crystalWorldPos = trackPos
+                            + tUp * Random.Range(10.0f, 14.0f)
+                            + tRight * Random.Range(-5.0f, 5.0f);
+                        crystalWorldRot = rot * Quaternion.Euler(
+                            180f + Random.Range(-25f, 25f),
+                            Random.Range(0f, 360f),
+                            Random.Range(-15f, 15f));
+                    }
+
+                    cObj.transform.position = crystalWorldPos;
+                    cObj.transform.rotation = crystalWorldRot;
+                    cObj.transform.localScale = Vector3.one * Random.Range(0.8f, 2.3f); // Çok büyükleri ufalttık
+                    FixPinkMaterials(cObj);
+                    totalSpawned++;
+
+                    // Her 2 kristalden birine parlak ışık (Işık yoğunluğu azaltıldı)
+                    if (c % 2 == 0)
+                    {
+                        Light plight      = cObj.AddComponent<Light>();
+                        plight.type       = LightType.Point;
+                        plight.range      = 12f;
+                        plight.intensity  = 3f;
+                        MeshRenderer mr   = cObj.GetComponentInChildren<MeshRenderer>();
+                        if (mr != null && mr.sharedMaterial != null && mr.sharedMaterial.HasProperty("_BaseColor"))
+                            plight.color = mr.sharedMaterial.GetColor("_BaseColor");
+                        else
+                            plight.color = Random.ColorHSV(0f, 1f, 0.7f, 1f, 0.8f, 1f);
+                    }
+                }
+                if (i == fadeSegments + 1)
+                    Debug.Log($"[CrystalCave] Segment {i}: Spawned {totalSpawned} crystals around trackPos.");
+            }
+
+            // ── Fenerler (her 4 segmentte bir) ────────────────────────
+            if (lantern != null && i % 4 == 2 && i > fadeSegments && i < numSegments - fadeSegments)
+            {
+                GameObject lObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(lantern);
+                lObj.transform.SetParent(root.transform, false);
+                float lanternSide = (i % 8 < 4) ? -1f : 1f;
+                Vector3 lanternRight = rot * Vector3.right;
+                Vector3 lanternUp    = rot * Vector3.up;
+                lObj.transform.position = pos
+                    + lanternRight * (worldInnerR * 0.75f * lanternSide)
+                    - lanternUp * (worldInnerR * 0.6f);
+                lObj.transform.rotation  = rot;
+                lObj.transform.localScale = Vector3.one * 0.5f;
+                FixPinkMaterials(lObj);
+
+                GameObject pointLight = new GameObject("PointLight");
+                pointLight.transform.parent        = lObj.transform;
+                pointLight.transform.localPosition = Vector3.zero;
+                Light light       = pointLight.AddComponent<Light>();
+                light.type      = LightType.Point;
+                light.color     = new Color(1f, 0.5f, 0.1f);
+                light.intensity = 3f;
+                light.range     = 12f;
+            }
+        }
+#endif
+    }
+
+    private void SpawnFinaleFireworks()
+    {
+        Transform existing = transform.Find("FinaleFireworks");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+
+        GameObject root = new GameObject("FinaleFireworks");
+        root.transform.SetParent(transform, false);
+
+#if UNITY_EDITOR
+        var sc = FindFirstObjectByType<UnityEngine.Splines.SplineContainer>();
+        if (sc == null) return;
+
+        // İstasyona yakın bitiş noktası — spline'ın %90'ı
+        float finaleT = 0.90f; 
+        Vector3 fp = sc.EvaluatePosition(finaleT);
+        Vector3 halfP = sc.EvaluatePosition(0.5f);
+
+        // Sisteme FireworksFinale scriptini ekle
+        FireworksFinale fwf = root.AddComponent<FireworksFinale>();
+        fwf.endPos = fp;
+        fwf.halfwayPos = halfP;
+        
+        root.transform.position = fp;
+        
+        // Dışarıdan Prefab aramasını SİLDİK. 
+        // Böylece BOZUK/GÖRÜNMEZ prefablar yerine bizim kodla yazdığımız %100 çalışan sistem kullanılacak.
+        fwf.fireworkPrefab = null;
+
+        fwf.totalBursts = 25;       // Çok daha fazla havai fişek
+        fwf.burstInterval = 0.4f;   // Çok daha sık (6-7 saniye boyunca aralıksız)
+        fwf.launchHeight = 60f;     // Kameranın tam önüne denk gelsin
+        fwf.sideOffset = 40f;       // Ekranı doldursun
+#endif
+    }
+
+    // ================================================================
+    //  SPARE COASTER CART AT STATION
+    // ================================================================
+    private void SpawnSpareCoasterCart()
+    {
+        Transform existing = transform.Find("SpareCoasterCart");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+
+#if UNITY_EDITOR
+        var sc = FindFirstObjectByType<UnityEngine.Splines.SplineContainer>();
+        if (sc == null) return;
+
+        // İstasyon = spline başlangıcı (t=0)
+        Vector3 stationPos = sc.EvaluatePosition(0f);
+        Vector3 stationTan = sc.EvaluateTangent(0f);
+        Vector3 flatTan = Vector3.Normalize(new Vector3(stationTan.x, 0, stationTan.z));
+        Vector3 stationRight = Vector3.Normalize(Vector3.Cross(Vector3.up, flatTan));
+
+        // QueueFloor (Gri zemin) objesini bul
+        GameObject queueFloor = GameObject.Find("QueueFloor");
+        Vector3 sparePos = stationPos + stationRight * 4f; // Varsayılan ofset
+        
+        if (queueFloor != null)
+        {
+            // QueueFloor'un merkezini kullan, y ekseninde tam zemine (0.05m ofset ile) tutunmasını sağla.
+            sparePos = queueFloor.transform.position;
+            sparePos.y += 0.05f; 
+        }
+
+        // Mevcut coaster art/görseli bul — ÖZELLİKLE "CartRoot" aranıyor
+        string[] cartNames = {
+            "CartRoot", "CartRoot Variant", "CoasterCart", "RailCart", "Cart", "Wagon", "Player"
+        };
+
+        GameObject sourceCart = null;
+
+        foreach (string name in cartNames)
+        {
+            GameObject found = GameObject.Find(name);
+            if (found != null) { sourceCart = found; break; }
+        }
+
+        // Bulunamazsa SplineAnimate olan herhangi bir objeyi ara
+        if (sourceCart == null)
+        {
+            var splineAnim = FindFirstObjectByType<UnityEngine.Splines.SplineAnimate>();
+            if (splineAnim != null) sourceCart = splineAnim.gameObject;
+        }
+
+        if (sourceCart != null)
+        {
+            // Kaynağın görsel kısmını klonla
+            GameObject spare = Instantiate(sourceCart);
+            spare.name = "SpareCoasterCart";
+            spare.transform.SetParent(transform, true);
+            spare.transform.position = sparePos;
+            spare.transform.rotation = Quaternion.LookRotation(flatTan);
+
+            // Hareket/kamera/ses bileşenlerini kaldır — sadece görsel
+            foreach (var comp in spare.GetComponentsInChildren<UnityEngine.Splines.SplineAnimate>())
+                DestroyImmediate(comp);
+            foreach (var comp in spare.GetComponentsInChildren<MonoBehaviour>())
+            {
+                // SimpleEnvironmentBuilder ve AnimalWander hariç diğer C# scriptleri temizle
+                if (comp.GetType().Name.Contains("Coaster") || comp.GetType().Name.Contains("Follow") || comp.GetType().Name.Contains("AI"))
+                    DestroyImmediate(comp);
+            }
+            foreach (var cam in spare.GetComponentsInChildren<Camera>(true))
+                DestroyImmediate(cam);
+            foreach (var al in spare.GetComponentsInChildren<AudioListener>(true))
+                DestroyImmediate(al);
+            foreach (var aus in spare.GetComponentsInChildren<AudioSource>(true))
+                DestroyImmediate(aus);
+
+            FixPinkMaterials(spare);
+            Debug.Log($"[SpareCoaster] Cloned '{sourceCart.name}' at {sparePos} (QueueFloor: {(queueFloor != null ? "Found" : "Missing")})");
+        }
+        else
+        {
+            Debug.LogWarning("SpawnSpareCoasterCart: No source cart found. Cannot place spare cart.");
+        }
+
+        // --- GÖRSEL (STEAM LOCOMOTIVE) TALEBİ ---
+        // Kullanıcının belirttiği "Steam Locomotive" ray üzerinde dekoratif olarak bulunacak
+        GameObject steamLocoPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Bretwalda Steam Locomotive/Prefab/steam locomotive.prefab");
+        if (steamLocoPrefab != null)
+        {
+            GameObject loco = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(steamLocoPrefab);
+            loco.name = "SteamLocomotive_Decor";
+            loco.transform.SetParent(transform, true);
+            
+            // Lokasyon olarak şu anki stationPos + offset kullanıyoruz (elle ince ayar yapılabilir)
+            loco.transform.position = stationPos + stationRight * 8.5f + Vector3.forward * 2f;
+            loco.transform.rotation = Quaternion.LookRotation(-stationRight); // Yan dursa iyi olur
+            
+            FixPinkMaterials(loco); 
+            Debug.Log("[SteamLocomotive] Dekoratif tren ray üzerine yerleştirildi.");
         }
 #endif
     }
@@ -1706,6 +2204,12 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             // Hayvanların yerinde saymasına neden olan "Root Motion" kapatılır.
             Animator anim = GetComponent<Animator>();
             if (anim != null) anim.applyRootMotion = false;
+            
+            // Çarpışmadan dolayı takılıp kalmamaları için colliderler kaldırılır.
+            Collider[] cols = GetComponentsInChildren<Collider>();
+            foreach (var col in cols) Destroy(col);
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null) Destroy(rb);
         }
 
         void Update()
@@ -1732,7 +2236,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             transform.rotation = Quaternion.Euler(0, newY, 0);
 
             // Skala büyüdüğü için hızı artırdık ve root motion kapalıyken ilerlemesini garanti ediyoruz
-            float moveAmount = moveSpeed * 2.5f * Time.deltaTime;
+            float moveAmount = moveSpeed * 3.8f * Time.deltaTime;
             transform.Translate(Vector3.forward * moveAmount, Space.Self);
 
             if (!isBird && Terrain.activeTerrain != null)

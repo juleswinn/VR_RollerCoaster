@@ -29,9 +29,11 @@ public class RollerCoasterBoatAI : MonoBehaviour
     [Header("Water FX")]
     [Tooltip("NamuFX Water_Splash prefab – burst sırasında patlar")]
     public GameObject splashPrefab;
-    [Tooltip("Teknenin arkasındaki wake/iz için ParticleSystem prefab")]
     public GameObject wakePrefab;
     public float splashInterval = 0.35f;
+
+    [Header("Audio")]
+    public AudioClip engineSound;
 
     [Header("Bob")]
     public float bobAmplitude = 0.12f;
@@ -47,6 +49,7 @@ public class RollerCoasterBoatAI : MonoBehaviour
     private float        _currentYaw;   // sadece yaw – bob'u bozmaz
     private ParticleSystem _wakePS;
     private float        _interceptTimeVar;
+    private AudioSource  _audioSrc;
 
     private static System.Collections.Generic.List<RollerCoasterBoatAI> _allBoats = new();
 
@@ -87,6 +90,19 @@ public class RollerCoasterBoatAI : MonoBehaviour
                 shape.radius = 1.6f;
             }
         }
+        
+        if (engineSound != null)
+        {
+            _audioSrc = gameObject.AddComponent<AudioSource>();
+            _audioSrc.clip = engineSound;
+            _audioSrc.loop = true;
+            _audioSrc.spatialBlend = 1f;
+            _audioSrc.rolloffMode = AudioRolloffMode.Linear;
+            _audioSrc.minDistance = 20f;
+            _audioSrc.maxDistance = 150f; // Keskin duvar (yakında duyulacak sadece)
+            _audioSrc.volume = 0f;
+            _audioSrc.Play();
+        }
 
         StartCoroutine(FindCoasterDelayed());
     }
@@ -110,6 +126,13 @@ public class RollerCoasterBoatAI : MonoBehaviour
             
             // Waypoint'i coaster'ın ilerisindeki bir nokta olarak belirle
             Vector3 futurePos = _coaster.position + coasterForward * (burstSpeed * interceptLeadTime);
+            
+            // Bütün teknelerin aynı noktaya yığılmasını önlemek için her birine özel ofset
+            float randomAngle = (GetInstanceID() % 12) * 30f;
+            float spreadDist = 28f + (GetInstanceID() % 5) * 5f; // teknelerin arasında 28-50m mesafe dağılımı olsun
+            Vector3 targetOffset = new Vector3(Mathf.Cos(randomAngle * Mathf.Deg2Rad), 0, Mathf.Sin(randomAngle * Mathf.Deg2Rad)) * spreadDist;
+            
+            futurePos += targetOffset;
             futurePos.y = waterY;
             
             // Eğer waypoint göl sınırları dışındaysa sınırda tut
@@ -144,6 +167,25 @@ public class RollerCoasterBoatAI : MonoBehaviour
             var em = _wakePS.emission;
             // 5f -> 20f, 60f -> 180f (3 kat artırıldı)
             em.rateOverTime = Mathf.Lerp(20f, 180f, speed / burstSpeed);
+        }
+
+        // ── Motor Sesi Dinamikleri ─────────────────────────────────────
+        if (_audioSrc != null)
+        {
+            _audioSrc.pitch = Mathf.Lerp(_audioSrc.pitch, _isBursting ? 1.6f : 0.85f, Time.deltaTime * 2.5f);
+            
+            float camHeight = Camera.main != null ? Camera.main.transform.position.y : transform.position.y;
+            float camDist = Camera.main != null ? Vector3.Distance(Camera.main.transform.position, transform.position) : 999f;
+            
+            // Eğer kamera yüksekteyse veya 150 metreden uzaksa sesi tamamen 0'a çek (dengesiz yerlerde çıkmaması için)
+            if (camHeight > 30f || camDist > 150f)
+            {
+                _audioSrc.volume = Mathf.Lerp(_audioSrc.volume, 0f, Time.deltaTime * 3f);
+            }
+            else
+            {
+                _audioSrc.volume = Mathf.Lerp(_audioSrc.volume, _isBursting ? 0.9f : 0.45f, Time.deltaTime * 3f);
+            }
         }
 
         // ── Bob ───────────────────────────────────────────────────
@@ -253,7 +295,7 @@ public class RollerCoasterBoatAI : MonoBehaviour
             if (d < neighborDist && d > 0.001f)
             {
                 Vector3 diff = (transform.position - other.transform.position).normalized;
-                force += (diff / d) * 3f; // İtme gücü artırıldı
+                force += (diff / d) * 12f; // İtme gücü artırıldı çok etkili olması için
                 count++;
             }
         }

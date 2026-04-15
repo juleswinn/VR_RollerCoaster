@@ -73,6 +73,15 @@ public class CoasterTrainController : MonoBehaviour
     private float splineLength = 1f;
     private int lapCounter;
     private bool poseInitialized;
+    private bool externalControl = false;
+
+    // ── TunnelCrateObstacle erişim API'si ──────────────────────────
+    public float GetT() => t;
+    public void SetT(float value) { t = Mathf.Repeat(value, 1f); ApplyPose(true); }
+    public float GetCurrentSpeed() => currentSpeed;
+    public void SetCurrentSpeed(float value) { currentSpeed = Mathf.Max(0f, value); }
+    public Transform GetTrainRoot() => trainRoot;
+    public void SetExternalControl(bool enabled) { externalControl = enabled; }
 
     public void SetSpline(SplineContainer container)
     {
@@ -168,9 +177,12 @@ public class CoasterTrainController : MonoBehaviour
 
             case RideState.Running:
                 SetLapBar(1f);
-                ApplyStationApproachBrake();
-                UpdateRunningSpeed();
-                currentSpeed = Mathf.Clamp(currentSpeed, globalMinRunningSpeed, maxRunningSpeed);
+                if (!externalControl)
+                {
+                    ApplyStationApproachBrake();
+                    UpdateRunningSpeed();
+                    currentSpeed = Mathf.Clamp(currentSpeed, globalMinRunningSpeed, maxRunningSpeed);
+                }
                 AdvanceAlongSpline(currentSpeed);
                 TryEnterStation();
                 break;

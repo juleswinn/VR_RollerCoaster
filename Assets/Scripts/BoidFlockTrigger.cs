@@ -62,9 +62,10 @@ public class BoidFlockTrigger : MonoBehaviour
             _boids.fragmentedFlock = 120;    // Sürü çok dağılsın
             _boids.fragmentedBirds = 40;     // Bireysel kuşlar uzaklaşsın
 
-            // Ses çal
+            // Ses çal (ilk 1 saniyeyi atla — direkt kanat sesi)
             if (_audioSource != null && !_audioSource.isPlaying)
             {
+                _audioSource.time = 1f;
                 _audioSource.Play();
             }
         }

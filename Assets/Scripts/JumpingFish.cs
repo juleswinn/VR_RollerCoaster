@@ -7,8 +7,8 @@ public class JumpingFish : MonoBehaviour
     [Header("Cinematic Limits")]
     public static int globalJumpCount = 0;
     private static float lastGlobalJumpTime = 0f;
-    private const int MAX_JUMPS = 6;
-    private const float JUMP_COOLDOWN = 12f;
+    private const int MAX_JUMPS = 12;
+    private const float JUMP_COOLDOWN = 6f;
 
     [Header("Visual & FX")]
     public GameObject splashFXPrefab;
@@ -37,14 +37,11 @@ public class JumpingFish : MonoBehaviour
     {
         if (_coasterTf == null) return;
         
-        // Coaster'in yuksekligi su seviyesine yakin mi?
-        if (_coasterTf.position.y > 45f) return;
-        
         // Bu baligi baz aliyor muyuz (mesafe sarti)
         float dist = Vector3.Distance(transform.position, _coasterTf.position);
         
-        // Eger hedefe (roller coaster'a) 60 birimden yakinsa ve jump limitine ulasilmamissa
-        if (dist < 60f && globalJumpCount < MAX_JUMPS && (Time.time - lastGlobalJumpTime) > JUMP_COOLDOWN)
+        // Eger hedefe (roller coaster'a) 120 birimden yakinsa ve jump limitine ulasilmamissa
+        if (dist < 120f && globalJumpCount < MAX_JUMPS && (Time.time - lastGlobalJumpTime) > JUMP_COOLDOWN)
         {
             globalJumpCount++;
             lastGlobalJumpTime = Time.time;

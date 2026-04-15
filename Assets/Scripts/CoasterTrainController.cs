@@ -41,7 +41,7 @@ public class CoasterTrainController : MonoBehaviour
     [SerializeField, Min(0f)] private float launchSpeed = 10f;
 
     [Header("Motion")]
-    [SerializeField] private bool loop = true;
+    [SerializeField] private bool loop = false; // 1 tur sonra dur
     [SerializeField, Min(0f)] private float cruiseSpeed = 10f;
     [SerializeField, Min(0f)] private float acceleration = 4f;
     [SerializeField, Min(0f)] private float brakeDeceleration = 5f;
@@ -279,14 +279,18 @@ public class CoasterTrainController : MonoBehaviour
         }
         else
         {
-            t = Mathf.Clamp01(t);
-
-            if (Mathf.Approximately(t, 1f) && t > previousT)
+            if (t >= 1f)
             {
+                t = 0.999f;
                 currentSpeed = 0f;
-                EnterState(RideState.Boarding);
-                t = stationStopT;
+                // 1 tur tamamlandı, kalıcı olarak dur
+                state = RideState.Boarding;
+                stateTimer = 0f;
+                enabled = false; // Script'i tamamen durdur
+                Debug.Log("[CoasterTrainController] 1 tur tamamlandı, coaster durdu.");
+                return;
             }
+            t = Mathf.Clamp01(t);
         }
     }
 

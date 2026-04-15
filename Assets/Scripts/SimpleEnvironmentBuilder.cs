@@ -2130,8 +2130,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         c3.transform.position = trackPos + Vector3.up * 0.5f;
         c3.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-15f, 15f), 0);
         c3.transform.localScale = Vector3.one * 3.0f;
-        EnsureCratePhysics(c3);
-        FixPinkMaterials(c3);
+        CleanCrateForCustomSystem(c3);
 
         // ── Crate4 (uzun dikdörtgen) — arkada solda ─────────────────
         GameObject c4 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate4Prefab, groupRoot.transform);
@@ -2139,8 +2138,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         c4.transform.position = trackPos + flatTan * 2.5f - trackRight * 1.2f + Vector3.up * 0.5f;
         c4.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-10f, 10f), 0);
         c4.transform.localScale = Vector3.one * 2.8f;
-        EnsureCratePhysics(c4);
-        FixPinkMaterials(c4);
+        CleanCrateForCustomSystem(c4);
 
         // ── Crate5 (geniş çift kasa) — arkada sağda ────────────────
         GameObject c5 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate5Prefab, groupRoot.transform);
@@ -2148,8 +2146,12 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         c5.transform.position = trackPos + flatTan * 3.0f + trackRight * 1.3f + Vector3.up * 0.5f;
         c5.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-10f, 10f), 0);
         c5.transform.localScale = Vector3.one * 2.5f;
-        EnsureCratePhysics(c5);
-        FixPinkMaterials(c5);
+        CleanCrateForCustomSystem(c5);
+
+        // ── Debris prefab materyallerini de editor-time'da URP'ye çevir ──
+        if (crate3Debris != null) FixPinkMaterials(crate3Debris);
+        if (crate4Debris != null) FixPinkMaterials(crate4Debris);
+        if (crate5Debris != null) FixPinkMaterials(crate5Debris);
 
         // ── TunnelCrateObstacle bileşeni ─────────────────────────────
         TunnelCrateObstacle obstacle = groupRoot.AddComponent<TunnelCrateObstacle>();
@@ -2194,6 +2196,33 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         if (rb == null) rb = crate.AddComponent<Rigidbody>();
         rb.isKinematic = true;
         rb.useGravity = false;
+    }
+
+    /// <summary>
+    /// Kasa prefab'ını kendi custom TunnelCrateObstacle sistemi için hazırlar:
+    /// 1. DestructibleObject bileşenini kaldırır (kendi pembe debris'ini spawn etmesini engeller)
+    /// 2. URP materyal düzeltmesi uygular
+    /// 3. Fizik bileşenlerini ayarlar
+    /// </summary>
+    private void CleanCrateForCustomSystem(GameObject crate)
+    {
+        // DestructibleObject ve ilişkili Diabolical Games bileşenlerini kaldır
+        // (Start()'da kendi debris'ini spawn eder, pembe görünüme neden olur)
+        foreach (var comp in crate.GetComponents<MonoBehaviour>())
+        {
+            if (comp == null) continue;
+            string typeName = comp.GetType().FullName;
+            if (typeName.Contains("DiabolicalGames") || typeName.Contains("Destructible") || typeName.Contains("Despawn"))
+            {
+                DestroyImmediate(comp);
+            }
+        }
+
+        // URP materyal düzeltmesi
+        FixPinkMaterials(crate);
+
+        // Fizik ayarları
+        EnsureCratePhysics(crate);
     }
 
     private void SpawnFinaleFireworks()

@@ -58,17 +58,17 @@ public class FireworksFinale : MonoBehaviour
         }
         else
         {
-            // 2. AŞAMA: Yarıladıktan sonra Bitiş'e (İstasyona) 150 metreden daha yakın olduğu an PATLAT!
-            // Ekstra güvenlik: En az 70 saniye geçmiş olsun.
-            if (_elapsedTime > 70f && Vector3.Distance(_target.position, endPos) < 150f)
+            // 2. AŞAMA: Yarıladıktan sonra Bitiş'e (İstasyona) 250 metreden daha yakın olduğu an PATLAT!
+            // Ekstra güvenlik: En az 30 saniye geçmiş olsun.
+            if (_elapsedTime > 30f && Vector3.Distance(_target.position, endPos) < 250f)
             {
                 _triggered = true;
                 StartCoroutine(FireworksSequence());
             }
         }
 
-        // Failsafe: Oyuncu ekstrem sebeplerden dolayı asla yarılamazsa, 95. saniyede mutlaka havai fişek patlar (Pistin ortalama bitiş süresi)
-        if (_elapsedTime > 95f && !_triggered)
+        // Failsafe: 60 saniyede mutlaka havai fişek patlar
+        if (_elapsedTime > 60f && !_triggered)
         {
             _triggered = true;
             StartCoroutine(FireworksSequence());
@@ -163,11 +163,11 @@ public class FireworksFinale : MonoBehaviour
         main.playOnAwake = false;
         main.startLifetime = new ParticleSystem.MinMaxCurve(2.0f, 4.0f);
         main.startSpeed = new ParticleSystem.MinMaxCurve(20f, 45f);
-        main.startSize = new ParticleSystem.MinMaxCurve(3.0f, 6.0f); // Boyutlar çok daha büyük
+        main.startSize = new ParticleSystem.MinMaxCurve(5.0f, 10.0f); // Çok büyük, uzaktan görülebilir
         main.startColor = new ParticleSystem.MinMaxGradient(mainColor, secondColor);
         main.gravityModifier = 0.5f;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 600;
+        main.maxParticles = 800;
 
         var emission = ps.emission;
         emission.rateOverTime = 0;

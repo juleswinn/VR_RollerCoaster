@@ -324,52 +324,20 @@ public class TunnelCrateObstacle : MonoBehaviour
         Shader urpLit = Shader.Find("Universal Render Pipeline/Lit");
         if (urpLit == null) return;
 
+        // Koyu ahşap renginde yepyeni, sağlam URP materyal yarat (Eskiyi çöpe at)
+        Material woodMat = new Material(urpLit);
+        woodMat.color = new Color(0.35f, 0.22f, 0.12f, 1f); // Ahşap kahvesi
+        woodMat.SetFloat("_Smoothness", 0.05f); // Parlamaz, mat
+
         Renderer[] renderers = obj.GetComponentsInChildren<Renderer>(true);
         foreach (var r in renderers)
         {
-            Material[] mats = r.materials; // Runtime'da .materials kullan (.sharedMaterials değil)
-            bool changed = false;
-            for (int i = 0; i < mats.Length; i++)
+            Material[] newMats = new Material[r.materials.Length]; // veya sharedMaterials
+            for (int i = 0; i < newMats.Length; i++)
             {
-                if (mats[i] == null) continue;
-                string sn = (mats[i].shader != null) ? mats[i].shader.name : "";
-                if (sn.StartsWith("Universal Render Pipeline")) continue;
-
-                // Renk ve texture bilgisini shader değişmeden önce al
-                Color col = Color.white;
-                if (mats[i].HasProperty("_Color")) col = mats[i].GetColor("_Color");
-                if (mats[i].HasProperty("_BaseColor")) col = mats[i].GetColor("_BaseColor");
-
-                Texture tex = null;
-                if (mats[i].HasProperty("_MainTex")) tex = mats[i].GetTexture("_MainTex");
-                if (tex == null && mats[i].HasProperty("_BaseMap")) tex = mats[i].GetTexture("_BaseMap");
-                if (tex == null && mats[i].HasProperty("_BaseColorMap")) tex = mats[i].GetTexture("_BaseColorMap");
-
-                // Normal map
-                Texture normalTex = null;
-                if (mats[i].HasProperty("_BumpMap")) normalTex = mats[i].GetTexture("_BumpMap");
-                if (normalTex == null && mats[i].HasProperty("_NormalMap")) normalTex = mats[i].GetTexture("_NormalMap");
-
-                // Shader değiştir
-                mats[i].shader = urpLit;
-
-                // URP Lit property'lerini ayarla
-                if (mats[i].HasProperty("_BaseColor")) mats[i].SetColor("_BaseColor", col);
-                if (mats[i].HasProperty("_Color")) mats[i].SetColor("_Color", col);
-                if (tex != null)
-                {
-                    if (mats[i].HasProperty("_BaseMap")) mats[i].SetTexture("_BaseMap", tex);
-                    if (mats[i].HasProperty("_MainTex")) mats[i].SetTexture("_MainTex", tex);
-                }
-                if (normalTex != null && mats[i].HasProperty("_BumpMap"))
-                {
-                    mats[i].SetTexture("_BumpMap", normalTex);
-                    mats[i].EnableKeyword("_NORMALMAP");
-                }
-
-                changed = true;
+                newMats[i] = woodMat;
             }
-            if (changed) r.materials = mats;
+            r.materials = newMats;
         }
     }
 

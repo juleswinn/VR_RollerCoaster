@@ -7,8 +7,8 @@ public class JumpingFish : MonoBehaviour
     [Header("Cinematic Limits")]
     public static int globalJumpCount = 0;
     private static float lastGlobalJumpTime = 0f;
-    private const int MAX_JUMPS = 12;
-    private const float JUMP_COOLDOWN = 6f;
+    private const int MAX_JUMPS = 6;
+    private const float JUMP_COOLDOWN = 10f;
 
     [Header("Visual & FX")]
     public GameObject splashFXPrefab;
@@ -58,8 +58,8 @@ public class JumpingFish : MonoBehaviour
         JumpingFish cloneScript = fishVisual.GetComponent<JumpingFish>();
         if (cloneScript != null) Destroy(cloneScript);
 
-        // Dev form
-        fishVisual.transform.localScale = Vector3.one * 5.0f;
+        // İstenen normal / hafif büyük boyutta (Devasa değil)
+        fishVisual.transform.localScale = Vector3.one * 2.0f;
         
         // Ses calmak
         if (jumpSound != null)
@@ -77,14 +77,19 @@ public class JumpingFish : MonoBehaviour
         Vector3 camFwd = _coasterTf.forward;
         Vector3 camRt = _coasterTf.right;
         Vector3 camUp = _coasterTf.up;
-        Vector3 centerFocus = _coasterTf.position + camFwd * 18f; // 18 metre onunde
+        Vector3 centerFocus = _coasterTf.position + camFwd * 12f; // Daha yakında, çok uzaklaşmasın
 
-        // Tam ekrana paralel, goz onunden gecmeyen - hafif asagidan
+        // Tam ekrana paralel, hafif aşağıdan, normal büyüklükte atlayış
         float dirSign = Random.value > 0.5f ? 1f : -1f;
-        Vector3 startP = centerFocus + camRt * 12f * dirSign - camUp * 4f;
-        Vector3 endP = centerFocus - camRt * 12f * dirSign - camUp * 4f;
+        Vector3 startP = centerFocus + camRt * 6f * dirSign - camUp * 2f;
+        Vector3 endP = centerFocus - camRt * 6f * dirSign - camUp * 2f;
 
-        float duration = 1.6f;
+        // Başlangıç su sıçraması
+        if (splashFXPrefab != null) {
+            Destroy(Instantiate(splashFXPrefab, startP, Quaternion.identity), 3f);
+        }
+
+        float duration = 1.3f;
         float elapsed = 0f;
 
         fishVisual.SetActive(true);
@@ -112,8 +117,8 @@ public class JumpingFish : MonoBehaviour
             // X ve Z de dogrusal gecis
             Vector3 currentPos = Vector3.Lerp(startP, endP, t);
             
-            // Y ekseninde Parabolik sicrama (Max yukseklik 15 birim)
-            float arc = 4f * 15f * t * (1f - t); 
+            // Y ekseninde normal parabolik sıçrama (Max yükseklik 4.5 birim)
+            float arc = 4f * 4.5f * t * (1f - t); 
             currentPos.y += arc;
 
             fishVisual.transform.position = currentPos;
@@ -127,6 +132,11 @@ public class JumpingFish : MonoBehaviour
             
             previousPos = currentPos;
             yield return null;
+        }
+
+        // Bitiş su sıçraması
+        if (splashFXPrefab != null) {
+            Destroy(Instantiate(splashFXPrefab, endP, Quaternion.identity), 3f);
         }
 
         // isimiz bitti, parcalanmayi yok et

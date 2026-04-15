@@ -74,6 +74,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 #if UNITY_EDITOR
         AutoAssignAssets();
 #endif
+        CreateSuimonoModule(); // Suimono Master Module
         CreateFlatTerrain();
         if (buildMountains) CreateMountains();
         if (buildTrees) CreateProfessionalTrees();
@@ -348,7 +349,24 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
     }
+    // ================================================================
+    //  SUIMONO MODULE
+    // ================================================================
+    private void CreateSuimonoModule()
+    {
+        Transform existing = transform.Find("SUIMONO_Module");
+        if (existing != null) DestroyImmediate(existing.gameObject);
+
+#if UNITY_EDITOR
+        GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SUIMONO - WATER SYSTEM 2/PREFABS/SUIMONO_Module.prefab");
+        if (prefab != null)
+        {
+            GameObject module = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, transform);
+            module.name = "SUIMONO_Module";
+            module.transform.localPosition = Vector3.zero;
+        }
 #endif
+    }
 
     // ================================================================
     //  TERRAIN
@@ -374,11 +392,11 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         Texture2D gt = null;
         Texture2D nrm = null;
 #if UNITY_EDITOR
-        gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground4/ground4_Diffuse.tga");
-        nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground4/ground4_Normal.tga");
+        gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground12/ground12_Diffuse.tga");
+        nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground12/ground12_Normal.tga");
 
-        if (gt == null) gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Diffuse.png");
-        if (nrm == null) nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Fantasy Skybox FREE/Scenes/Textures (Terrain)/Texture_Grass_Normal.png");
+        if (gt == null) gt = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground6/ground6_Diffuse.tga");
+        if (nrm == null) nrm = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground6/ground6_Normal.tga");
 #endif
         if (gt == null) gt = CreateSolidColorTexture(64, new Color(0.15f, 0.35f, 0.12f, 1f));
 
@@ -653,22 +671,57 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         if (pondMesh == null)
         {
-            // Su yuzeyi - terrain ustunde, z-fighting olmamasi icin offset
-            GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            water.name = "WaterSurface";
-            water.transform.SetParent(pondRoot.transform, false);
-            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-            water.transform.localScale = new Vector3(pondRadius * 2f, 0.04f, pondRadius * 2f);
-            SetColor(water, new Color(0.10f, 0.38f, 0.80f, 0.88f), true);
-            Object.DestroyImmediate(water.GetComponent<Collider>());
+            // SUIMONO Su Yüzeyi (Basic mavi silindir yerine)
+            GameObject water = null;
+#if UNITY_EDITOR
+            GameObject suimonoPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SUIMONO - WATER SYSTEM 2/PREFABS/SUIMONO_Surface.prefab");
+            if (suimonoPrefab != null)
+            {
+                water = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(suimonoPrefab, pondRoot.transform);
+                water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+                // Suimono surface'i scale etmek icin
+                water.transform.localScale = new Vector3(pondRadius * 0.2f, 1f, pondRadius * 0.2f);
+                water.name = "SuimonoWaterSurface";
+            }
+#endif
+            if (water == null)
+            {
+                // Fallback (Suimono bulunamazsa)
+                water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                water.name = "WaterSurface";
+                water.transform.SetParent(pondRoot.transform, false);
+                water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+                water.transform.localScale = new Vector3(pondRadius * 2f, 0.04f, pondRadius * 2f);
+                SetColor(water, new Color(0.10f, 0.38f, 0.80f, 0.88f), true);
+                Object.DestroyImmediate(water.GetComponent<Collider>());
+            }
 
-            // Golet kenari
+            // Golet kenari (Artık düz yeşil değil, Terrain toprak dokusu)
             GameObject rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             rim.name = "PondRim";
             rim.transform.SetParent(pondRoot.transform, false);
             rim.transform.localPosition = new Vector3(0f, 0.01f, 0f);
             rim.transform.localScale = new Vector3(pondRadius * 2.3f, 0.02f, pondRadius * 2.3f);
-            SetColor(rim, new Color(0.15f, 0.38f, 0.13f));
+            
+            Material rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+#if UNITY_EDITOR
+            Texture2D groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground12/ground12_Diffuse.tga");
+            if (groundTex == null) groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground6/ground6_Diffuse.tga");
+            if (groundTex != null)
+            {
+                rimMat.SetTexture("_BaseMap", groundTex);
+                rimMat.mainTextureScale = new Vector2(4f, 4f);
+            }
+            else
+            {
+                rimMat.color = new Color(0.15f, 0.38f, 0.13f);
+            }
+#else
+            rimMat.color = new Color(0.15f, 0.38f, 0.13f); // Build fallback
+#endif
+            rimMat.SetFloat("_Smoothness", 0f); // Mat toprak
+            if (rim.GetComponent<Renderer>() != null) rim.GetComponent<Renderer>().sharedMaterial = rimMat;
+            
             Object.DestroyImmediate(rim.GetComponent<Collider>());
         }
 
@@ -706,22 +759,51 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         root.transform.position = center;
 
-        // Su yuzeyi (Devasa)
-        GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        water.name = "CentralWaterSurface";
-        water.transform.SetParent(root.transform, false);
-        water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-        water.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
-        SetColor(water, new Color(0.08f, 0.35f, 0.75f, 0.90f), true);
-        Object.DestroyImmediate(water.GetComponent<Collider>());
+        // SUIMONO Su Yüzeyi (Central Feature Pond)
+        GameObject water = null;
+#if UNITY_EDITOR
+        GameObject suimonoPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SUIMONO - WATER SYSTEM 2/PREFABS/SUIMONO_Surface.prefab");
+        if (suimonoPrefab != null)
+        {
+            water = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(suimonoPrefab, root.transform);
+            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+            water.transform.localScale = new Vector3(radius * 0.2f, 1f, radius * 0.2f);
+            water.name = "SuimonoCentralWaterSurface";
+        }
+#endif
+        if (water == null)
+        {
+            water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            water.name = "CentralWaterSurface";
+            water.transform.SetParent(root.transform, false);
+            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+            water.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
+            SetColor(water, new Color(0.08f, 0.35f, 0.75f, 0.90f), true);
+            Object.DestroyImmediate(water.GetComponent<Collider>());
+        }
 
-        // Golet kenari (yesilimsi zemin halkasi)
+        // Golet kenari (Yughues Zemin Dokusu)
         GameObject rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         rim.name = "CentralPondRim";
         rim.transform.SetParent(root.transform, false);
         rim.transform.localPosition = new Vector3(0f, 0.01f, 0f);
         rim.transform.localScale = new Vector3(radius * 2.05f, 0.03f, radius * 2.05f);
-        SetColor(rim, new Color(0.12f, 0.36f, 0.11f));
+
+        Material rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+#if UNITY_EDITOR
+        Texture2D groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground12/ground12_Diffuse.tga");
+        if (groundTex == null) groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground6/ground6_Diffuse.tga");
+        if (groundTex != null)
+        {
+            rimMat.SetTexture("_BaseMap", groundTex);
+            rimMat.mainTextureScale = new Vector2(40f, 40f);
+        }
+        else rimMat.color = new Color(0.12f, 0.36f, 0.11f);
+#else
+        rimMat.color = new Color(0.12f, 0.36f, 0.11f);
+#endif
+        rimMat.SetFloat("_Smoothness", 0f);
+        if (rim.GetComponent<Renderer>() != null) rim.GetComponent<Renderer>().sharedMaterial = rimMat;
         Object.DestroyImmediate(rim.GetComponent<Collider>());
 
         // ── Alstra Infinite FishV1-4 Büyük Balıklar ──────────────────────

@@ -32,8 +32,8 @@ public class BoidFlockTrigger : MonoBehaviour
         {
             _audioSource = gameObject.AddComponent<AudioSource>();
             _audioSource.clip = scatterSound;
-            _audioSource.spatialBlend = 1f; // Tamamen 3D ses
-            _audioSource.maxDistance = 300f; // Geniş alan
+            _audioSource.spatialBlend = 0.2f; // %80 2D, %20 3D ses (hep duyulsun)
+            _audioSource.maxDistance = 500f; // Geniş alan
             _audioSource.volume = 1f;
         }
     }

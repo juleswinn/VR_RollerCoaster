@@ -2332,7 +2332,6 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         
         // Dışarıdan Prefab aramasını SİLDİK. 
         // Böylece BOZUK/GÖRÜNMEZ prefablar yerine bizim kodla yazdığımız %100 çalışan sistem kullanılacak.
-        fwf.fireworkPrefab = null;
 
         fwf.totalBursts = 25;       // Çok daha fazla havai fişek
         fwf.burstInterval = 0.4f;   // Çok daha sık (6-7 saniye boyunca aralıksız)

@@ -349,6 +349,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
     }
+#endif
+
     // ================================================================
     //  SUIMONO MODULE
     // ================================================================

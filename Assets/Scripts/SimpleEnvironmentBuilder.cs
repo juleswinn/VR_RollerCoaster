@@ -2054,10 +2054,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     // ================================================================
     private void SpawnTunnelCrateObstacle()
     {
-        Transform existing = transform.Find("TunnelCrateObstacle");
+        Transform existing = transform.Find("TunnelCrateObstacles");
         if (existing != null) DestroyImmediate(existing.gameObject);
 
-        GameObject root = new GameObject("TunnelCrateObstacle");
+        GameObject root = new GameObject("TunnelCrateObstacles");
         root.transform.SetParent(transform, false);
 
 #if UNITY_EDITOR
@@ -2065,16 +2065,12 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         if (sc == null) return;
 
         // ── Crate Prefab'ları yükle ──────────────────────────────────
-        // Görsel 1: Küçük kare kasa = Crate 3
-        // Görsel 2: Uzun dikdörtgen kasa = Crate 4  
-        // Görsel 3: Geniş çift kasa = Crate 5
         string basePath = "Assets/Diabolical Games/Destructible Objects/OBJECTS";
         
         GameObject crate3Prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath + "/Crate 3/Prefabs/Crate 3.prefab");
         GameObject crate4Prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath + "/Crate 4/Prefabs/Crate 4.prefab");
         GameObject crate5Prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath + "/Crate 5/Prefabs/Crate 5.prefab");
 
-        // Debris prefab'ları (parçalanmış haller)
         GameObject crate3Debris = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath + "/Crate 3/Prefabs/Crate 3 Debris Medium.prefab");
         GameObject crate4Debris = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath + "/Crate 4/Prefabs/Crate 4 Debris Medium.prefab");
         GameObject crate5Debris = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(basePath + "/Crate 5/Prefabs/Crate 5 Debris Medium.prefab");
@@ -2085,59 +2081,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             return;
         }
 
-        // ── Tünel ortasındaki pozisyon (startT=0.38, endT=0.57, orta=0.475) ──
-        float obstacleT = 0.475f;
-        Vector3 trackPos = sc.EvaluatePosition(obstacleT);
-        Vector3 trackTan = sc.EvaluateTangent(obstacleT);
-        Vector3 flatTan = Vector3.Normalize(new Vector3(trackTan.x, 0, trackTan.z));
-        if (flatTan == Vector3.zero) flatTan = Vector3.forward;
-        Vector3 trackRight = Vector3.Normalize(Vector3.Cross(Vector3.up, flatTan));
-        Quaternion trackRot = Quaternion.LookRotation(flatTan, Vector3.up);
-
-        // ── Kasaları rayların üstüne yerleştir ───────────────────────
-        // Crate3 (küçük kare) — en önde, ortada
-        GameObject c3 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate3Prefab, root.transform);
-        c3.name = "TunnelCrate_Small";
-        c3.transform.position = trackPos + Vector3.up * 0.5f;
-        c3.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-15f, 15f), 0);
-        c3.transform.localScale = Vector3.one * 1.8f;
-        // Rigidbody & Collider ekle (statik duracak, çarpmaya kadar kinematic)
-        EnsureCratePhysics(c3);
-        FixPinkMaterials(c3);
-
-        // Crate4 (uzun dikdörtgen) — arkada solda
-        GameObject c4 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate4Prefab, root.transform);
-        c4.name = "TunnelCrate_Tall";
-        c4.transform.position = trackPos + flatTan * 2.2f - trackRight * 0.9f + Vector3.up * 0.5f;
-        c4.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-10f, 10f), 0);
-        c4.transform.localScale = Vector3.one * 1.6f;
-        EnsureCratePhysics(c4);
-        FixPinkMaterials(c4);
-
-        // Crate5 (geniş çift kasa) — arkada sağda
-        GameObject c5 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate5Prefab, root.transform);
-        c5.name = "TunnelCrate_Wide";
-        c5.transform.position = trackPos + flatTan * 2.5f + trackRight * 1.0f + Vector3.up * 0.5f;
-        c5.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-10f, 10f), 0);
-        c5.transform.localScale = Vector3.one * 1.5f;
-        EnsureCratePhysics(c5);
-        FixPinkMaterials(c5);
-
-        // ── TunnelCrateObstacle bileşenini ekle ──────────────────────
-        TunnelCrateObstacle obstacle = root.AddComponent<TunnelCrateObstacle>();
-        obstacle.wholeCrates = new System.Collections.Generic.List<GameObject> { c3, c4, c5 };
-        obstacle.debrisPrefabs = new System.Collections.Generic.List<GameObject> { crate3Debris, crate4Debris, crate5Debris };
-        obstacle.firstBreakIndex = 0; // En öndeki küçük kasa ilk patlar
-        obstacle.collisionDistance = 3.5f;
-        obstacle.bounceBackAmount = 0.006f;
-        obstacle.bounceBackDuration = 1.0f;
-        obstacle.pauseAfterBounce = 0.8f;
-        obstacle.chargeUpDuration = 1.5f;
-        obstacle.explosionForce = 600f;
-        obstacle.explosionRadius = 8f;
-        obstacle.secondExplosionForce = 1000f;
-
-        // ── Ses dosyalarını yükle ────────────────────────────────────
+        // Ses dosyaları
         string audioBasePath = "Assets/Diabolical Games/Destructible Objects/Audio";
         AudioClip[] breakSounds = new AudioClip[4];
         for (int i = 0; i < 4; i++)
@@ -2145,11 +2089,86 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             breakSounds[i] = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>(
                 audioBasePath + "/Wood " + (i + 1) + ".wav");
         }
-        obstacle.breakSounds = breakSounds;
 
-        Debug.Log($"[TunnelCrateObstacle] 3 kasa tünel ortasına yerleştirildi: pos={trackPos}, t={obstacleT}");
+        // ── ENGEL GRUBU 1: Tünelin ilk yarısı (t=0.44) ──────────────
+        SpawnCrateGroup(sc, root.transform, 0.44f, "Group1",
+            crate3Prefab, crate4Prefab, crate5Prefab,
+            crate3Debris, crate4Debris, crate5Debris,
+            breakSounds);
+
+        // ── ENGEL GRUBU 2: Tünelin ikinci yarısı (t=0.53) ───────────
+        SpawnCrateGroup(sc, root.transform, 0.53f, "Group2",
+            crate3Prefab, crate4Prefab, crate5Prefab,
+            crate3Debris, crate4Debris, crate5Debris,
+            breakSounds);
 #endif
     }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Belirli bir spline t noktasına 3 kasa grubu yerleştirir ve TunnelCrateObstacle bileşeni ekler.
+    /// </summary>
+    private void SpawnCrateGroup(
+        UnityEngine.Splines.SplineContainer sc, Transform parent, float obstacleT, string groupName,
+        GameObject crate3Prefab, GameObject crate4Prefab, GameObject crate5Prefab,
+        GameObject crate3Debris, GameObject crate4Debris, GameObject crate5Debris,
+        AudioClip[] breakSounds)
+    {
+        GameObject groupRoot = new GameObject("CrateGroup_" + groupName);
+        groupRoot.transform.SetParent(parent, false);
+
+        Vector3 trackPos = sc.EvaluatePosition(obstacleT);
+        Vector3 trackTan = sc.EvaluateTangent(obstacleT);
+        Vector3 flatTan = Vector3.Normalize(new Vector3(trackTan.x, 0, trackTan.z));
+        if (flatTan == Vector3.zero) flatTan = Vector3.forward;
+        Vector3 trackRight = Vector3.Normalize(Vector3.Cross(Vector3.up, flatTan));
+        Quaternion trackRot = Quaternion.LookRotation(flatTan, Vector3.up);
+
+        // ── Crate3 (küçük kare kasa) — en önde, ortada ──────────────
+        GameObject c3 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate3Prefab, groupRoot.transform);
+        c3.name = "TunnelCrate_Small_" + groupName;
+        c3.transform.position = trackPos + Vector3.up * 0.5f;
+        c3.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-15f, 15f), 0);
+        c3.transform.localScale = Vector3.one * 3.0f;
+        EnsureCratePhysics(c3);
+        FixPinkMaterials(c3);
+
+        // ── Crate4 (uzun dikdörtgen) — arkada solda ─────────────────
+        GameObject c4 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate4Prefab, groupRoot.transform);
+        c4.name = "TunnelCrate_Tall_" + groupName;
+        c4.transform.position = trackPos + flatTan * 2.5f - trackRight * 1.2f + Vector3.up * 0.5f;
+        c4.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-10f, 10f), 0);
+        c4.transform.localScale = Vector3.one * 2.8f;
+        EnsureCratePhysics(c4);
+        FixPinkMaterials(c4);
+
+        // ── Crate5 (geniş çift kasa) — arkada sağda ────────────────
+        GameObject c5 = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(crate5Prefab, groupRoot.transform);
+        c5.name = "TunnelCrate_Wide_" + groupName;
+        c5.transform.position = trackPos + flatTan * 3.0f + trackRight * 1.3f + Vector3.up * 0.5f;
+        c5.transform.rotation = trackRot * Quaternion.Euler(0, Random.Range(-10f, 10f), 0);
+        c5.transform.localScale = Vector3.one * 2.5f;
+        EnsureCratePhysics(c5);
+        FixPinkMaterials(c5);
+
+        // ── TunnelCrateObstacle bileşeni ─────────────────────────────
+        TunnelCrateObstacle obstacle = groupRoot.AddComponent<TunnelCrateObstacle>();
+        obstacle.wholeCrates = new System.Collections.Generic.List<GameObject> { c3, c4, c5 };
+        obstacle.debrisPrefabs = new System.Collections.Generic.List<GameObject> { crate3Debris, crate4Debris, crate5Debris };
+        obstacle.firstBreakIndex = 0;
+        obstacle.collisionDistance = 4.5f;
+        obstacle.bounceBackAmount = 0.006f;
+        obstacle.bounceBackDuration = 1.0f;
+        obstacle.pauseAfterBounce = 0.8f;
+        obstacle.chargeUpDuration = 1.5f;
+        obstacle.explosionForce = 600f;
+        obstacle.explosionRadius = 8f;
+        obstacle.secondExplosionForce = 1000f;
+        obstacle.breakSounds = breakSounds;
+
+        Debug.Log($"[TunnelCrateObstacle] {groupName}: 3 kasa yerleştirildi at t={obstacleT}, pos={trackPos}");
+    }
+#endif
 
     /// <summary>
     /// Kasaların çarpışabilir olmasını sağlar: BoxCollider + kinematic Rigidbody

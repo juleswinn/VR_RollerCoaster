@@ -3,134 +3,94 @@ using System.Collections;
 
 /// <summary>
 /// Pistin son bölgesinde havai fişek patlatır.
-/// VR kamera yaklaşınca tetiklenir, sol ve sağdan ardışık fişekler fırlatılır.
-/// VFX Graph asset bulunamazsa, ParticleSystem ile oluşturulur.
+/// CoasterTrainController'ın t değerine göre tetiklenir (bitiş 3 sn öncesi).
 /// </summary>
 public class FireworksFinale : MonoBehaviour
 {
-    [Header("Trigger")]
-    public float triggerDistance = 200f;
-    
     [Header("Fireworks Setup")]
-    public GameObject fireworkPrefab;     // VFX Graph prefab (isteğe bağlı)
-    public int totalBursts = 8;           // Toplam patlama sayısı
-    public float burstInterval = 1.5f;    // Patlamalar arası süre
-    public float launchHeight = 60f;      // Patlama yüksekliği
-    public float sideOffset = 45f;        // Sağ/sol mesafe
+    public int totalBursts = 8;
+    public float burstInterval = 1.2f;
+    public float launchHeight = 60f;
+    public float sideOffset = 45f;
+    
+    [Header("Trigger")]
+    [Tooltip("Havai fişeklerin başlayacağı t değeri (0-1 arası, 1=bitiş)")]
+    public float triggerT = 0.96f;
     
     [Header("Audio")]
     public AudioClip fireworkSound;
     
     private Transform _target;
-
-    // YENİ SİSTEM: Spline üzerinde fiziksel değerlendirilen tam noktalar
-    public Vector3 endPos;
-    public Vector3 halfwayPos;
-
-    private bool _halfwayReached = false;
+    private CoasterTrainController _coasterController;
     private bool _triggered = false;
-    private float _elapsedTime = 0f;
 
     void Start()
     {
-        if (_target == null)
-        {
-            Camera cam = Camera.main;
-            if (cam != null) _target = cam.transform;
-        }
+        Camera cam = Camera.main;
+        if (cam != null) _target = cam.transform;
+        
+        _coasterController = FindFirstObjectByType<CoasterTrainController>();
     }
 
     void Update()
     {
         if (_triggered) return;
-        if (_target == null) return;
-
-        _elapsedTime += Time.deltaTime;
-
-        // 1. AŞAMA: Önce pisti yarılamış olması ŞART (Oyuna başlar başlamaz Bitiş tetiklenmesin diye)
-        if (!_halfwayReached)
+        if (_coasterController == null)
         {
-            if (Vector3.Distance(_target.position, halfwayPos) < 150f)
-            {
-                _halfwayReached = true;
-                Debug.Log("[FireworksFinale] Halfway point reached!");
-            }
+            _coasterController = FindFirstObjectByType<CoasterTrainController>();
+            return;
         }
-        else
+        if (_target == null)
         {
-            // 2. AŞAMA: Yarıladıktan sonra Bitiş'e (İstasyona) 250 metreden daha yakın olduğu an PATLAT!
-            // Ekstra güvenlik: En az 30 saniye geçmiş olsun.
-            if (_elapsedTime > 30f && Vector3.Distance(_target.position, endPos) < 250f)
-            {
-                _triggered = true;
-                StartCoroutine(FireworksSequence());
-            }
+            Camera cam = Camera.main;
+            if (cam != null) _target = cam.transform;
+            return;
         }
 
-        // Failsafe: 60 saniyede mutlaka havai fişek patlar
-        if (_elapsedTime > 60f && !_triggered)
+        // Coaster'ın spline üzerindeki ilerleme oranını kontrol et
+        float currentT = _coasterController.GetT();
+        
+        // t >= triggerT olduğunda tetikle (pistin sonuna yaklaşırken)
+        if (currentT >= triggerT && currentT < 1f)
         {
             _triggered = true;
             StartCoroutine(FireworksSequence());
+            Debug.Log($"[FireworksFinale] TRIGGERED at t={currentT}!");
         }
     }
 
     IEnumerator FireworksSequence()
     {
-        Debug.Log($"[FireworksFinale] TRIGGERED! Spawning {totalBursts} bursts. Distance to target: {Vector3.Distance(transform.position, _target.position)}");
-
         for (int i = 0; i < totalBursts; i++)
         {
-            // KAMERA ODAKLI GARANTİ ÇÖZÜM: Havai fişekler istasyonun değil, DOĞRUDAN KULLANICININ BAKIŞ AÇISININ
-            // içine (tam önüne) spawn olacak. Gözükmeme ihtimali sıfır.
-            Vector3 refPos = _target != null ? _target.position : transform.position;
-            Vector3 camRight = _target != null ? _target.right : Vector3.right;
-            Vector3 camForward = _target != null ? _target.forward : Vector3.forward;
+            if (_target == null) yield break;
+
+            // Kameranın bakış açısı içinde spawn
+            Vector3 refPos = _target.position;
+            Vector3 camRight = _target.right;
+            Vector3 camForward = _target.forward;
             
             camForward.y = 0; 
             camForward.Normalize();
 
             float side = (i % 2 == 0) ? -sideOffset : sideOffset;
             
-            // Kameranın 60-90m ilerisinde (tam önünde), 30-60m hafif yukarısında. SADECE GÖRÜŞ AÇISI İÇİ.
+            // Kameranın 40-70m ilerisinde, yukarıda
             Vector3 launchPos = refPos
-                + camForward * Random.Range(60f, 95f)
-                + camRight * side
-                + Vector3.up * Random.Range(30f, 60f)
-                + Random.insideUnitSphere * 15f;
+                + camForward * Random.Range(40f, 70f)
+                + camRight * side * Random.Range(0.6f, 1.4f)
+                + Vector3.up * Random.Range(25f, launchHeight)
+                + Random.insideUnitSphere * 10f;
 
-
-            if (fireworkPrefab != null)
-            {
-                // VFX Graph prefab kullan
-                GameObject fw = Instantiate(fireworkPrefab, launchPos, Quaternion.identity);
-                Destroy(fw, 6f);
-            }
-            else
-            {
-                // Fallback: ParticleSystem ile havai fişek oluştur
-                SpawnParticleFirework(launchPos, i);
-            }
+            SpawnParticleFirework(launchPos, i);
 
             // Patlama sesi
             if (fireworkSound != null)
             {
                 AudioSource.PlayClipAtPoint(fireworkSound, launchPos, 1f);
             }
-            else
-            {
-                // Ses yoksa basit bir boom
-                GameObject sfx = new GameObject("FW_SFX");
-                sfx.transform.position = launchPos;
-                AudioSource src = sfx.AddComponent<AudioSource>();
-                src.spatialBlend = 1f;
-                src.maxDistance = 500f;
-                src.volume = 0.8f;
-                // Ses dosyası olmadan sadece pozisyon marker, gerçek ses asset'ten gelecek
-                Destroy(sfx, 3f);
-            }
 
-            yield return new WaitForSeconds(burstInterval + Random.Range(-0.3f, 0.3f));
+            yield return new WaitForSeconds(burstInterval + Random.Range(-0.2f, 0.2f));
         }
     }
 
@@ -151,10 +111,7 @@ public class FireworksFinale : MonoBehaviour
         Color mainColor = palette[index % palette.Length];
         Color secondColor = palette[(index + 3) % palette.Length];
 
-        // ParticleSystem — DEFAULT MATERYALİ KULLAN (Shader.Find runtime'da çöker!)
         ParticleSystem ps = fwObj.AddComponent<ParticleSystem>();
-        
-        // Önce STOP et — aktifken main değiştirmek hata verir
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
         var main = ps.main;
@@ -162,17 +119,17 @@ public class FireworksFinale : MonoBehaviour
         main.loop = false;
         main.playOnAwake = false;
         main.startLifetime = new ParticleSystem.MinMaxCurve(2.0f, 4.0f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(20f, 45f);
-        main.startSize = new ParticleSystem.MinMaxCurve(5.0f, 10.0f); // Çok büyük, uzaktan görülebilir
+        main.startSpeed = new ParticleSystem.MinMaxCurve(15f, 35f);
+        main.startSize = new ParticleSystem.MinMaxCurve(4.0f, 8.0f);
         main.startColor = new ParticleSystem.MinMaxGradient(mainColor, secondColor);
-        main.gravityModifier = 0.5f;
+        main.gravityModifier = 0.4f;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.maxParticles = 800;
 
         var emission = ps.emission;
         emission.rateOverTime = 0;
         emission.SetBursts(new ParticleSystem.Burst[] { 
-            new ParticleSystem.Burst(0f, 350, 600) 
+            new ParticleSystem.Burst(0f, 300, 500) 
         });
 
         var shape = ps.shape;
@@ -202,16 +159,13 @@ public class FireworksFinale : MonoBehaviour
         sol.enabled = true;
         sol.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 1, 1, 0));
 
-        // Trail DEVRE DIŞI — "duration while playing" hatasını önler
         var trails = ps.trails;
         trails.enabled = false;
 
         ParticleSystemRenderer rend = fwObj.GetComponent<ParticleSystemRenderer>();
         rend.renderMode = ParticleSystemRenderMode.Billboard;
         
-        // PEMBE GÖRÜNME VE GÖRÜNMEZLİK SORUNU İÇİN URP LIT ÇÖZÜMÜ:
-        // Sprites shader'ı tünelde sorun yaratmış olabilir, bu yüzden mağaradakilerle (kristallerle vb) aynı,
-        // %100 her yerde çalışan "Universal Render Pipeline/Lit" shader'ı kullanıyoruz.
+        // URP Particle shader
         Shader safeShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
         if (safeShader == null) safeShader = Shader.Find("Universal Render Pipeline/Lit");
         if (safeShader == null) safeShader = Shader.Find("Particles/Standard Unlit");
@@ -221,9 +175,12 @@ public class FireworksFinale : MonoBehaviour
             Material safeMat = new Material(safeShader);
             if (safeMat.HasProperty("_BaseColor")) safeMat.SetColor("_BaseColor", mainColor);
             if (safeMat.HasProperty("_Color")) safeMat.SetColor("_Color", mainColor);
-            // Particle Alpha'nın çalışabilmesi için surface type vb ayarları URP'de Transparent yapılabilir
-            safeMat.SetFloat("_Surface", 1); // 1 = Transparent
-            safeMat.SetFloat("_Blend", 0);   // 0 = Alpha, 1 = Premultiply vs.
+            safeMat.SetFloat("_Surface", 1);
+            safeMat.SetFloat("_Blend", 0);
+            safeMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            safeMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            safeMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            safeMat.renderQueue = 3000;
             rend.material = safeMat;
         }
 
@@ -234,8 +191,8 @@ public class FireworksFinale : MonoBehaviour
         Light fwLight = lightObj.AddComponent<Light>();
         fwLight.type = LightType.Point;
         fwLight.color = mainColor;
-        fwLight.intensity = 20f;
-        fwLight.range = 200f;
+        fwLight.intensity = 25f;
+        fwLight.range = 250f;
 
         Debug.Log($"[Firework_{index}] Spawned at {pos} color={mainColor}");
         ps.Play();

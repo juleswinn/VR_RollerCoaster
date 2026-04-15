@@ -77,13 +77,14 @@ public class JumpingFish : MonoBehaviour
         Vector3 camFwd = _coasterTf.forward;
         Vector3 camRt = _coasterTf.right;
         Vector3 camUp = _coasterTf.up;
-        Vector3 centerFocus = _coasterTf.position + camFwd * 12f; // 12 metre onunde
+        Vector3 centerFocus = _coasterTf.position + camFwd * 18f; // 18 metre onunde
 
-        // Sagdan sola
-        Vector3 startP = centerFocus + camRt * 6f - camUp * 1.5f;
-        Vector3 endP = centerFocus - camRt * 6f - camUp * 1.5f;
+        // Tam ekrana paralel, goz onunden gecmeyen - hafif asagidan
+        float dirSign = Random.value > 0.5f ? 1f : -1f;
+        Vector3 startP = centerFocus + camRt * 12f * dirSign - camUp * 4f;
+        Vector3 endP = centerFocus - camRt * 12f * dirSign - camUp * 4f;
 
-        float duration = 1.3f;
+        float duration = 1.6f;
         float elapsed = 0f;
 
         fishVisual.SetActive(true);
@@ -111,19 +112,17 @@ public class JumpingFish : MonoBehaviour
             // X ve Z de dogrusal gecis
             Vector3 currentPos = Vector3.Lerp(startP, endP, t);
             
-            // Y ekseninde Parabolik sicrama (Max yukseklik 5 birim)
-            float arc = 4f * 4.5f * t * (1f - t); 
+            // Y ekseninde Parabolik sicrama (Max yukseklik 15 birim)
+            float arc = 4f * 15f * t * (1f - t); 
             currentPos.y += arc;
 
             fishVisual.transform.position = currentPos;
             
-            // Hareket yönüne gerçekçi bakış atma (Eğri tabanlı)
+            // Hareket yönüne gerçekçi bakış atma
             Vector3 moveDir = (currentPos - previousPos);
             if (moveDir.sqrMagnitude > 0.001f)
             {
-                float wiggle = Mathf.Sin(Time.time * 25f) * 15f;
-                Quaternion rot = Quaternion.LookRotation(moveDir.normalized);
-                fishVisual.transform.rotation = rot * Quaternion.Euler(0, wiggle, 0);
+                fishVisual.transform.rotation = Quaternion.LookRotation(moveDir.normalized);
             }
             
             previousPos = currentPos;

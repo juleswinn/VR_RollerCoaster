@@ -119,6 +119,9 @@ public class CoasterTrainController : MonoBehaviour
     {
         if (trainRoot == null) trainRoot = transform;
 
+        // 1 tur sonra dur — Inspector değerini override et
+        loop = false;
+
         CacheSplineLength();
         t = stationStopT;
         currentSpeed = 0f;

@@ -78,11 +78,17 @@ public class TunnelCrateObstacle : MonoBehaviour
 
         if (coasterController != null)
         {
-            coasterTransform = coasterController.transform;
+            coasterTransform = coasterController.GetTrainRoot();
+            if (coasterTransform == null) coasterTransform = coasterController.transform;
+        }
 
-            // trainRoot varsa onu kullan
-            Transform trainRoot = coasterController.GetTrainRoot();
-            if (trainRoot != null) coasterTransform = trainRoot;
+        // KASALAR İÇİN RUNTIME MATERYAL DÜZELTMESİ (Pembe Görünümü Kesin Engeller)
+        if (wholeCrates != null)
+        {
+            foreach (var crate in wholeCrates)
+            {
+                if (crate != null) FixMaterialsInRuntime(crate);
+            }
         }
 
         initialized = (coasterController != null && wholeCrates.Count > 0);
@@ -293,7 +299,7 @@ public class TunnelCrateObstacle : MonoBehaviour
         debris.transform.localScale = source.transform.localScale;
 
         // URP materyal düzeltmesi (pembe görünüm engellenir)
-        FixDebrisMaterials(debris);
+        FixMaterialsInRuntime(debris);
 
         // Her parçaya patlama kuvveti uygula
         Rigidbody[] rbs = debris.GetComponentsInChildren<Rigidbody>();
@@ -310,10 +316,10 @@ public class TunnelCrateObstacle : MonoBehaviour
     }
 
     /// <summary>
-    /// Runtime'da spawn edilen debris objelerinin pembe görünmesini engeller.
+    /// Runtime'da spawn edilen debris veya statik kasa objelerinin pembe görünmesini engeller.
     /// Standard/Legacy shader'ları URP Lit'e çevirir.
     /// </summary>
-    private void FixDebrisMaterials(GameObject obj)
+    private void FixMaterialsInRuntime(GameObject obj)
     {
         Shader urpLit = Shader.Find("Universal Render Pipeline/Lit");
         if (urpLit == null) return;

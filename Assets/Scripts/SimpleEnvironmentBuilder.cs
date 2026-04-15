@@ -1773,7 +1773,9 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             
             boids.danger = false; // Kendi trigger'imiz ile yonetecegiz
 
-            flockObj.AddComponent<BoidFlockTrigger>();
+            var boidTrigger = flockObj.AddComponent<BoidFlockTrigger>();
+            boidTrigger.scatterSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>(
+                "Assets/Sounds/616623__trp__121003-pigeon-flock-fly-away-wing-flaps-toronto.wav");
             i++;
         }
 #endif
@@ -2200,29 +2202,109 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
     /// <summary>
     /// Kasa prefab'ını kendi custom TunnelCrateObstacle sistemi için hazırlar:
-    /// 1. DestructibleObject bileşenini kaldırır (kendi pembe debris'ini spawn etmesini engeller)
-    /// 2. URP materyal düzeltmesi uygular
+    /// 1. DestructibleObject bileşenini kaldırır
+    /// 2. YENİ materyal instansları oluşturur (URP Lit shader ile)
     /// 3. Fizik bileşenlerini ayarlar
     /// </summary>
     private void CleanCrateForCustomSystem(GameObject crate)
     {
         // DestructibleObject ve ilişkili Diabolical Games bileşenlerini kaldır
-        // (Start()'da kendi debris'ini spawn eder, pembe görünüme neden olur)
-        foreach (var comp in crate.GetComponents<MonoBehaviour>())
+        var allComps = crate.GetComponents<MonoBehaviour>();
+        for (int ci = allComps.Length - 1; ci >= 0; ci--)
         {
-            if (comp == null) continue;
-            string typeName = comp.GetType().FullName;
+            if (allComps[ci] == null) continue;
+            string typeName = allComps[ci].GetType().FullName;
             if (typeName.Contains("DiabolicalGames") || typeName.Contains("Destructible") || typeName.Contains("Despawn"))
             {
-                DestroyImmediate(comp);
+                DestroyImmediate(allComps[ci]);
             }
         }
 
-        // URP materyal düzeltmesi
-        FixPinkMaterials(crate);
+        // Mevcut Rigidbody'yi de kaldır (DestructibleObject ile birlikte gelmiş olabilir)
+        Rigidbody existingRb = crate.GetComponent<Rigidbody>();
+        if (existingRb != null) DestroyImmediate(existingRb);
+
+        // YENİ URP materyal instansları oluştur (pembe görünümü kesin çözer)
+        ForceURPMaterialInstances(crate);
 
         // Fizik ayarları
         EnsureCratePhysics(crate);
+    }
+
+    /// <summary>
+    /// Bir objenin tüm renderer'larına yeni URP Lit materyal instansları oluşturur.
+    /// sharedMaterial değiştirmek yerine tamamen YENİ materyaller yaratır.
+    /// </summary>
+    private void ForceURPMaterialInstances(GameObject obj)
+    {
+        Shader urpLit = Shader.Find("Universal Render Pipeline/Lit");
+        if (urpLit == null) return;
+
+        Renderer[] renderers = obj.GetComponentsInChildren<Renderer>(true);
+        foreach (var r in renderers)
+        {
+            Material[] oldMats = r.sharedMaterials;
+            Material[] newMats = new Material[oldMats.Length];
+
+            for (int i = 0; i < oldMats.Length; i++)
+            {
+                if (oldMats[i] == null)
+                {
+                    newMats[i] = new Material(urpLit);
+                    continue;
+                }
+
+                // Eski materyalden renk ve texture bilgilerini al
+                Color col = Color.white;
+                if (oldMats[i].HasProperty("_Color")) col = oldMats[i].GetColor("_Color");
+                if (oldMats[i].HasProperty("_BaseColor")) col = oldMats[i].GetColor("_BaseColor");
+
+                Texture albedo = null;
+                if (oldMats[i].HasProperty("_MainTex")) albedo = oldMats[i].GetTexture("_MainTex");
+                if (albedo == null && oldMats[i].HasProperty("_BaseMap")) albedo = oldMats[i].GetTexture("_BaseMap");
+
+                Texture normal = null;
+                if (oldMats[i].HasProperty("_BumpMap")) normal = oldMats[i].GetTexture("_BumpMap");
+
+                Texture metallic = null;
+                if (oldMats[i].HasProperty("_MetallicGlossMap")) metallic = oldMats[i].GetTexture("_MetallicGlossMap");
+
+                float smoothness = 0.5f;
+                if (oldMats[i].HasProperty("_Glossiness")) smoothness = oldMats[i].GetFloat("_Glossiness");
+                if (oldMats[i].HasProperty("_Smoothness")) smoothness = oldMats[i].GetFloat("_Smoothness");
+
+                // Yeni URP Lit materyal oluştur
+                Material newMat = new Material(urpLit);
+                newMat.name = oldMats[i].name + "_URP";
+
+                if (newMat.HasProperty("_BaseColor")) newMat.SetColor("_BaseColor", col);
+                if (newMat.HasProperty("_Color")) newMat.SetColor("_Color", col);
+
+                if (albedo != null)
+                {
+                    if (newMat.HasProperty("_BaseMap")) newMat.SetTexture("_BaseMap", albedo);
+                    if (newMat.HasProperty("_MainTex")) newMat.SetTexture("_MainTex", albedo);
+                }
+
+                if (normal != null && newMat.HasProperty("_BumpMap"))
+                {
+                    newMat.SetTexture("_BumpMap", normal);
+                    newMat.EnableKeyword("_NORMALMAP");
+                }
+
+                if (metallic != null && newMat.HasProperty("_MetallicGlossMap"))
+                {
+                    newMat.SetTexture("_MetallicGlossMap", metallic);
+                    newMat.EnableKeyword("_METALLICGLOSSMAP");
+                }
+
+                if (newMat.HasProperty("_Smoothness")) newMat.SetFloat("_Smoothness", smoothness);
+
+                newMats[i] = newMat;
+            }
+
+            r.sharedMaterials = newMats;
+        }
     }
 
     private void SpawnFinaleFireworks()
@@ -2244,10 +2326,9 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         // Sisteme FireworksFinale scriptini ekle
         FireworksFinale fwf = root.AddComponent<FireworksFinale>();
-        fwf.endPos = fp;
-        fwf.halfwayPos = halfP;
+        fwf.triggerT = 0.96f; // Bitişten hemen önce (~3-4 saniye)
         
-        root.transform.position = fp;
+        root.transform.position = sc.EvaluatePosition(0.96f);
         
         // Dışarıdan Prefab aramasını SİLDİK. 
         // Böylece BOZUK/GÖRÜNMEZ prefablar yerine bizim kodla yazdığımız %100 çalışan sistem kullanılacak.

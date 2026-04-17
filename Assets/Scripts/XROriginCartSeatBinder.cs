@@ -4,7 +4,7 @@ public class XROriginCartSeatBinder : MonoBehaviour
 {
     [SerializeField] private Transform xrOrigin;
     [SerializeField] private Transform seatAnchor;
-    [SerializeField] private bool bindOnStart = true;
+    [SerializeField] private bool bindOnStart = false;
     [SerializeField] private bool keepWorldOffset = false;
 
     private void Reset()

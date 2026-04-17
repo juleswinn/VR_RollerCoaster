@@ -301,7 +301,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             "Assets/BackgroundMountainFree",
             "Assets/Low Poly Tree Mega Pack by MysticForge",
             "Assets/NatureStarterKit2", "Assets/MamkinEnthusiast",
-            "Assets/Mine", "Assets/#NVJOB Boids", "Assets/Blue Olive Studio"
+            "Assets/Mine", "Assets/#NVJOB Boids", "Assets/Blue Olive Studio",
+            "Assets/Procedural Water Shader", "Assets/SUIMONO - WATER SYSTEM 2"
         };
         foreach (string folder in matFolders)
         {
@@ -330,20 +331,25 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             }
         }
 
-        // Ensure lb_groundTarget tag exists for birds
+        // Ensure lb_groundTarget and lb_perchTarget tags exist for birds
         UnityEditor.SerializedObject tagManager = new UnityEditor.SerializedObject(UnityEditor.AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
         UnityEditor.SerializedProperty tagsProp = tagManager.FindProperty("tags");
-        bool foundTag = false;
-        for (int tj = 0; tj < tagsProp.arraySize; tj++)
+        
+        string[] requiredTags = new string[] { "lb_groundTarget", "lb_perchTarget" };
+        foreach (string reqTag in requiredTags)
         {
-            if (tagsProp.GetArrayElementAtIndex(tj).stringValue == "lb_groundTarget") { foundTag = true; break; }
+            bool foundTag = false;
+            for (int tj = 0; tj < tagsProp.arraySize; tj++)
+            {
+                if (tagsProp.GetArrayElementAtIndex(tj).stringValue == reqTag) { foundTag = true; break; }
+            }
+            if (!foundTag)
+            {
+                tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
+                tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = reqTag;
+            }
         }
-        if (!foundTag)
-        {
-            tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
-            tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = "lb_groundTarget";
-            tagManager.ApplyModifiedProperties();
-        }
+        tagManager.ApplyModifiedProperties();
 
         UnityEditor.AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
@@ -352,22 +358,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 #endif
 
     // ================================================================
-    //  SUIMONO MODULE
+    //  SUIMONO MODULE (REMOVED)
     // ================================================================
     private void CreateSuimonoModule()
     {
         Transform existing = transform.Find("SUIMONO_Module");
         if (existing != null) DestroyImmediate(existing.gameObject);
-
-#if UNITY_EDITOR
-        GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SUIMONO - WATER SYSTEM 2/PREFABS/SUIMONO_Module.prefab");
-        if (prefab != null)
-        {
-            GameObject module = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefab, transform);
-            module.name = "SUIMONO_Module";
-            module.transform.localPosition = Vector3.zero;
-        }
-#endif
+        // Suimono URP ile uyumsuz olduğu için modül artık yüklenmiyor.
     }
 
     // ================================================================
@@ -422,6 +419,25 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         terrainObj.name = "PrototypeTerrain";
         terrainObj.transform.SetParent(transform, false);
         terrainObj.transform.position = new Vector3(-terrainSize * 0.5f, -2f, -terrainSize * 0.5f);
+        
+        // URP Terrain pembe gorunmemesi icin
+        Shader terrainShader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
+        if (terrainShader != null)
+        {
+#if UNITY_EDITOR
+            Material terrainMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/URPTerrainMaterial.mat");
+            if (terrainMat == null)
+            {
+                terrainMat = new Material(terrainShader);
+                terrainMat.name = "URPTerrainMaterial";
+                UnityEditor.AssetDatabase.CreateAsset(terrainMat, "Assets/URPTerrainMaterial.mat");
+            }
+#else
+            Material terrainMat = new Material(terrainShader);
+            terrainMat.name = "URPTerrainMaterial";
+#endif
+            terrainObj.GetComponent<Terrain>().materialTemplate = terrainMat;
+        }
     }
 
     // ================================================================
@@ -673,30 +689,13 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         if (pondMesh == null)
         {
-            // SUIMONO Su Yüzeyi (Basic mavi silindir yerine)
-            GameObject water = null;
-#if UNITY_EDITOR
-            GameObject suimonoPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SUIMONO - WATER SYSTEM 2/PREFABS/SUIMONO_Surface.prefab");
-            if (suimonoPrefab != null)
-            {
-                water = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(suimonoPrefab, pondRoot.transform);
-                water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-                // Suimono surface'i scale etmek icin
-                water.transform.localScale = new Vector3(pondRadius * 0.2f, 1f, pondRadius * 0.2f);
-                water.name = "SuimonoWaterSurface";
-            }
-#endif
-            if (water == null)
-            {
-                // Fallback (Suimono bulunamazsa)
-                water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                water.name = "WaterSurface";
-                water.transform.SetParent(pondRoot.transform, false);
-                water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-                water.transform.localScale = new Vector3(pondRadius * 2f, 0.04f, pondRadius * 2f);
-                SetColor(water, new Color(0.10f, 0.38f, 0.80f, 0.88f), true);
-                Object.DestroyImmediate(water.GetComponent<Collider>());
-            }
+            GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            water.name = "WaterSurface";
+            water.transform.SetParent(pondRoot.transform, false);
+            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+            water.transform.localScale = new Vector3(pondRadius * 2f, 0.04f, pondRadius * 2f);
+            SetColor(water, new Color(0.10f, 0.38f, 0.80f, 0.88f), true);
+            Object.DestroyImmediate(water.GetComponent<Collider>());
 
             // Golet kenari (Artık düz yeşil değil, Terrain toprak dokusu)
             GameObject rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -705,24 +704,33 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             rim.transform.localPosition = new Vector3(0f, 0.01f, 0f);
             rim.transform.localScale = new Vector3(pondRadius * 2.3f, 0.02f, pondRadius * 2.3f);
             
-            Material rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            Material rimMat = null;
 #if UNITY_EDITOR
+            rimMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/PondRimMaterial.mat");
+            if (rimMat == null)
+            {
+                rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                UnityEditor.AssetDatabase.CreateAsset(rimMat, "Assets/PondRimMaterial.mat");
+            }
             Texture2D groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground12/ground12_Diffuse.tga");
             if (groundTex == null) groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground6/ground6_Diffuse.tga");
             if (groundTex != null)
             {
                 rimMat.SetTexture("_BaseMap", groundTex);
-                rimMat.mainTextureScale = new Vector2(4f, 4f);
+                rimMat.SetTextureScale("_BaseMap", new Vector2(4f, 4f));
+                rimMat.color = Color.white;
             }
             else
             {
                 rimMat.color = new Color(0.15f, 0.38f, 0.13f);
             }
 #else
+            rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             rimMat.color = new Color(0.15f, 0.38f, 0.13f); // Build fallback
 #endif
             rimMat.SetFloat("_Smoothness", 0f); // Mat toprak
             if (rim.GetComponent<Renderer>() != null) rim.GetComponent<Renderer>().sharedMaterial = rimMat;
+
             
             Object.DestroyImmediate(rim.GetComponent<Collider>());
         }
@@ -761,28 +769,14 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         root.transform.position = center;
 
-        // SUIMONO Su Yüzeyi (Central Feature Pond)
-        GameObject water = null;
-#if UNITY_EDITOR
-        GameObject suimonoPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SUIMONO - WATER SYSTEM 2/PREFABS/SUIMONO_Surface.prefab");
-        if (suimonoPrefab != null)
-        {
-            water = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(suimonoPrefab, root.transform);
-            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-            water.transform.localScale = new Vector3(radius * 0.2f, 1f, radius * 0.2f);
-            water.name = "SuimonoCentralWaterSurface";
-        }
-#endif
-        if (water == null)
-        {
-            water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            water.name = "CentralWaterSurface";
-            water.transform.SetParent(root.transform, false);
-            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-            water.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
-            SetColor(water, new Color(0.08f, 0.35f, 0.75f, 0.90f), true);
-            Object.DestroyImmediate(water.GetComponent<Collider>());
-        }
+        // URP uyumlu sade Su Yüzeyi (Central Feature Pond)
+        GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        water.name = "CentralWaterSurface";
+        water.transform.SetParent(root.transform, false);
+        water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+        water.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
+        SetColor(water, new Color(0.08f, 0.35f, 0.75f, 0.90f), true);
+        Object.DestroyImmediate(water.GetComponent<Collider>());
 
         // Golet kenari (Yughues Zemin Dokusu)
         GameObject rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -791,17 +785,25 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
         rim.transform.localPosition = new Vector3(0f, 0.01f, 0f);
         rim.transform.localScale = new Vector3(radius * 2.05f, 0.03f, radius * 2.05f);
 
-        Material rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        Material rimMat = null;
 #if UNITY_EDITOR
+        rimMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/CentralPondRimMaterial.mat");
+        if (rimMat == null)
+        {
+            rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            UnityEditor.AssetDatabase.CreateAsset(rimMat, "Assets/CentralPondRimMaterial.mat");
+        }
         Texture2D groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground12/ground12_Diffuse.tga");
         if (groundTex == null) groundTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ADG_Textures/ground_vol1/ground6/ground6_Diffuse.tga");
         if (groundTex != null)
         {
             rimMat.SetTexture("_BaseMap", groundTex);
-            rimMat.mainTextureScale = new Vector2(40f, 40f);
+            rimMat.SetTextureScale("_BaseMap", new Vector2(40f, 40f));
+            rimMat.color = Color.white;
         }
         else rimMat.color = new Color(0.12f, 0.36f, 0.11f);
 #else
+        rimMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         rimMat.color = new Color(0.12f, 0.36f, 0.11f);
 #endif
         rimMat.SetFloat("_Smoothness", 0f);
@@ -1437,6 +1439,9 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 }
 
                 changed = true;
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(mats[i]);
+#endif
             }
             if (changed) r.sharedMaterials = mats;
         }
@@ -1486,18 +1491,47 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
     {
         Renderer rend = obj.GetComponent<Renderer>();
         if (rend == null) return;
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        if (mat == null) mat = new Material(Shader.Find("Standard"));
+        
+        Material mat = null;
+#if UNITY_EDITOR
+        string hex = ColorUtility.ToHtmlStringRGBA(color) + (transparent ? "_Trans" : "_Opaque");
+        string path = "Assets/GenColorMat_" + hex + ".mat";
+        mat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            mat = new Material(shader);
+            mat.color = color;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            
+            if (transparent)
+            {
+                mat.SetFloat("_Surface", 1);
+                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetInt("_ZWrite", 0);
+                mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            }
+            UnityEditor.AssetDatabase.CreateAsset(mat, path);
+        }
+#else
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Standard");
+        mat = new Material(shader);
         mat.color = color;
+        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
         if (transparent)
         {
             mat.SetFloat("_Surface", 1);
-            mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-            mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             mat.SetInt("_ZWrite", 0);
-            mat.renderQueue = (int)RenderQueue.Transparent;
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
             mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         }
+#endif
         rend.sharedMaterial = mat;
     }
 
@@ -1950,27 +1984,7 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
             smoothTan = Vector3.Normalize(smoothTan);
             if (smoothTan == Vector3.zero) smoothTan = Vector3.forward;
 
-            // ---- Rotasyon ----
-            Quaternion rot = Quaternion.LookRotation(smoothTan, Vector3.up);
-
-            // ---- Dinamik Z ölçeği: komşu örnekler arası mesafe ----
-            float worldGap;
-            if (i < numSegments - 1)
-                worldGap = Vector3.Distance(positions[i], positions[i + 1]);
-            else
-                worldGap = Vector3.Distance(positions[i - 1], positions[i]);
-
-            float zScale = (worldGap / meshZSize) * 1.8f; // Daha fazla örtüşme = sıfır boşluk
-
-            // ---- Prefab seç ----
-            GameObject prefabToUse = tunnelPrefabs[Random.Range(0, tunnelPrefabs.Length)];
-            if (i == 0 && rampDown != null) prefabToUse = rampDown;
-            if (i == numSegments - 1 && rampUp != null) prefabToUse = rampUp;
-
-            GameObject segment = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefabToUse);
-            segment.transform.SetParent(root.transform, false);
-
-            // ---- SPLİNE UP VEKTÖRÜ İLE Y OFSETİ ----
+            // ---- SPLİNE UP VEKTÖRÜ İLE Y OFSETİ VE ROTASYON ----
             // Spline'ın kendi yukarı vektörünü kullanarak tüneli
             // eğime MİLİMETRİK uyumlu konumlandır.
             // upDir: spline'ın o noktadaki gerçek "yukarı" yönü
@@ -1987,16 +2001,32 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 if (upDir == Vector3.zero) upDir = Vector3.up;
             }
 
+            // ---- Rotasyon (Artık Yokuslara Uyuyor!) ----
+            Quaternion rot = Quaternion.LookRotation(smoothTan, upDir);
+
+            // ---- Dinamik Z ölçeği: komşu örnekler arası mesafe ----
+            float worldGap;
+            if (i < numSegments - 1)
+                worldGap = Vector3.Distance(positions[i], positions[i + 1]);
+            else
+                worldGap = Vector3.Distance(positions[i - 1], positions[i]);
+
+            float zScale = (worldGap / meshZSize) * 2.4f; // Daha fazla örtüşme = tamamen kapalı tünel
+
+            // ---- Prefab seç ----
+            GameObject prefabToUse = tunnelPrefabs[Random.Range(0, tunnelPrefabs.Length)];
+            if (i == 0 && rampDown != null) prefabToUse = rampDown;
+            if (i == numSegments - 1 && rampUp != null) prefabToUse = rampUp;
+
+            GameObject segment = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(prefabToUse);
+            segment.transform.SetParent(root.transform, false);
+
             // Tünel merkezini rayın biraz üzerine koy: ray alt %35'te geçsin
             float yOffset = (-meshCenterY + meshYSize * 0.15f) * tunnelScaleY;
             Vector3 pos = positions[i] + upDir * yOffset;
 
-            // ---- Giriş/çıkış huni efekti ----
+            // ---- Giriş/çıkış huni efekti kaldirildi (Raylar dışarı taşıyor ve tünel yırtılıyordu) ----
             float scaleMul = 1f;
-            if (i < fadeSegments)
-                scaleMul = Mathf.Lerp(0.5f, 1f, (float)i / fadeSegments);
-            else if (i >= numSegments - fadeSegments)
-                scaleMul = Mathf.Lerp(0.5f, 1f, (float)(numSegments - 1 - i) / fadeSegments);
 
             float finalScaleX = tunnelScaleX * scaleMul;
             float finalScaleY = tunnelScaleY * scaleMul;
@@ -2042,8 +2072,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     {
                         // ── ZEMİN ── 
                         crystalWorldPos = trackPos
-                            - tUp * Random.Range(3.5f, 4.5f)
-                            + tRight * Random.Range(-4.0f, 4.0f);
+                            - tUp * Random.Range(3.5f, 5.0f)      // zemin biraz daha aşağıda
+                            + tRight * Random.Range(-4.5f, 4.5f);
                         crystalWorldRot = rot * Quaternion.Euler(
                             Random.Range(-15f, 15f),
                             Random.Range(0f, 360f),
@@ -2051,10 +2081,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     }
                     else if (zone < 0.45f)
                     {
-                        // ── SOL DUVAR ── (Raydan 10 - 15 metre sol — tünel duvarına TAM gömülmüş)
+                        // ── SOL DUVAR ── (Raydan 9 - 14 metre sol — tünel duvarına TAM gömülmüş)
                         crystalWorldPos = trackPos
-                            - tRight * Random.Range(10.0f, 15.0f)
-                            + tUp * Random.Range(2.0f, 6.0f);
+                            - tRight * Random.Range(9.0f, 14.0f)
+                            + tUp * Random.Range(-1.0f, 4.0f);
                         crystalWorldRot = rot * Quaternion.Euler(
                             Random.Range(-15f, 15f),
                             Random.Range(0f, 360f),
@@ -2062,10 +2092,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     }
                     else if (zone < 0.65f)
                     {
-                        // ── SAĞ DUVAR ── (Raydan 10 - 15 metre sağ — tünel duvarına TAM gömülmüş)
+                        // ── SAĞ DUVAR ── (Raydan 9 - 14 metre sağ — tünel duvarına TAM gömülmüş)
                         crystalWorldPos = trackPos
-                            + tRight * Random.Range(10.0f, 15.0f)
-                            + tUp * Random.Range(2.0f, 6.0f);
+                            + tRight * Random.Range(9.0f, 14.0f)
+                            + tUp * Random.Range(-1.0f, 4.0f);
                         crystalWorldRot = rot * Quaternion.Euler(
                             Random.Range(-15f, 15f),
                             Random.Range(0f, 360f),
@@ -2073,10 +2103,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                     }
                     else
                     {
-                        // ── TAVAN (sarkıçlar) ── (Raydan 10 - 14 metre yukarı)
+                        // ── TAVAN (sarkıçlar) ── (Raydan 8 - 14 metre yukarı gömülü)
                         crystalWorldPos = trackPos
-                            + tUp * Random.Range(10.0f, 14.0f)
-                            + tRight * Random.Range(-5.0f, 5.0f);
+                            + tUp * Random.Range(8.0f, 14.0f)
+                            + tRight * Random.Range(-4.5f, 4.5f);
                         crystalWorldRot = rot * Quaternion.Euler(
                             180f + Random.Range(-25f, 25f),
                             Random.Range(0f, 360f),
@@ -2410,6 +2440,10 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
 
         // Sisteme FireworksFinale scriptini ekle
         FireworksFinale fwf = root.AddComponent<FireworksFinale>();
+#if UNITY_EDITOR
+        AudioClip fwClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/569846__danlucaz__fireworks-1.wav");
+        if (fwClip != null) fwf.fireworkSound = fwClip;
+#endif
         fwf.triggerT = 0.96f; // Bitişten hemen önce (~3-4 saniye)
         
         root.transform.position = sc.EvaluatePosition(0.96f);

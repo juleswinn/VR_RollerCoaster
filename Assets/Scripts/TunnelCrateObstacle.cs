@@ -332,12 +332,7 @@ public class TunnelCrateObstacle : MonoBehaviour
         Renderer[] renderers = obj.GetComponentsInChildren<Renderer>(true);
         foreach (var r in renderers)
         {
-            Material[] newMats = new Material[r.materials.Length]; // veya sharedMaterials
-            for (int i = 0; i < newMats.Length; i++)
-            {
-                newMats[i] = woodMat;
-            }
-            r.materials = newMats;
+            r.sharedMaterial = woodMat;
         }
     }
 
@@ -348,7 +343,15 @@ public class TunnelCrateObstacle : MonoBehaviour
         fxObj.transform.position = position;
 
         ParticleSystem ps = fxObj.AddComponent<ParticleSystem>();
+        ParticleSystemRenderer psRend = fxObj.GetComponent<ParticleSystemRenderer>();
+        Shader partShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (partShader == null) partShader = Shader.Find("Particles/Standard Unlit");
+        Material partMat = new Material(partShader);
+        partMat.SetColor("_BaseColor", Color.white);
+        psRend.sharedMaterial = partMat;
+        
         var main = ps.main;
+        ps.Stop(); // Ensure it isn't playing when changing main properties.
         main.duration = 0.5f;
         main.loop = false;
         main.startLifetime = 1.5f;
@@ -378,7 +381,20 @@ public class TunnelCrateObstacle : MonoBehaviour
         dustObj.transform.position = position;
 
         ParticleSystem dustPs = dustObj.AddComponent<ParticleSystem>();
+        ParticleSystemRenderer dustRend = dustObj.GetComponent<ParticleSystemRenderer>();
+        Material dustMat = new Material(partShader);
+        dustMat.SetColor("_BaseColor", Color.white);
+        // Make it alpha blended
+        dustMat.SetFloat("_Surface", 1);
+        dustMat.SetFloat("_Mode", 2);
+        dustMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        dustMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        dustMat.SetInt("_ZWrite", 0);
+        dustMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        dustRend.sharedMaterial = dustMat;
+
         var dustMain = dustPs.main;
+        dustPs.Stop();
         dustMain.duration = 0.3f;
         dustMain.loop = false;
         dustMain.startLifetime = 2.5f;

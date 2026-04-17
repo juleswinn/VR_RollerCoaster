@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 3
   tags:
   - lb_groundTarget
+  - lb_perchTarget
   layers:
   - Default
   - TransparentFX
@@ -14,9 +15,9 @@ TagManager:
   - UI
   - 
   - 
-  - 
-  - 
-  - 
+  - Suimono_Water
+  - Suimono_Depth
+  - Suimono_Screen
   - 
   - 
   - 

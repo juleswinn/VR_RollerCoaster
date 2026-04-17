@@ -16,6 +16,7 @@ public class BoidFlockTrigger : MonoBehaviour
     
     private NVBoids _boids;
     private Transform _target;
+    private CoasterTrainController _ctc;
     private bool _panicked;
     private float _calmTimer;
     private AudioSource _audioSource;
@@ -24,9 +25,24 @@ public class BoidFlockTrigger : MonoBehaviour
     {
         _boids = GetComponent<NVBoids>();
         
-        // VR kamerayı bul
-        Camera cam = Camera.main;
-        if (cam != null) _target = cam.transform;
+        // Hedefi güvenli bul (Camera.main hatasından kaçın)
+        if (_target == null)
+        {
+            _ctc = FindFirstObjectByType<CoasterTrainController>();
+            if (_ctc != null) _target = _ctc.transform;
+            else 
+            {
+                var cams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                if (cams.Length > 0) _target = cams[0].transform;
+            }
+        }
+
+#if UNITY_EDITOR
+        if (scatterSound == null)
+        {
+            scatterSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/616623__trp__121003-pigeon-flock-fly-away-wing-flaps-toronto.wav");
+        }
+#endif
 
         if (scatterSound != null)
         {
@@ -44,10 +60,24 @@ public class BoidFlockTrigger : MonoBehaviour
         {
             if (_target == null)
             {
-                Camera cam = Camera.main;
-                if (cam != null) _target = cam.transform;
+                _ctc = FindFirstObjectByType<CoasterTrainController>();
+                if (_ctc != null) _target = _ctc.transform;
+                else 
+                {
+                    var cams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                    if (cams.Length > 0) _target = cams[0].transform;
+                }
             }
             return;
+        }
+
+        // Tünel içinde ise sesi dinamik olarak kıs
+        if (_audioSource != null)
+        {
+            if (_ctc != null && _ctc.IsInTunnel())
+                _audioSource.volume = Mathf.Lerp(_audioSource.volume, 0f, Time.deltaTime * 5f);
+            else
+                _audioSource.volume = Mathf.Lerp(_audioSource.volume, 1f, Time.deltaTime * 5f);
         }
 
         float dist = Vector3.Distance(transform.position, _target.position);
@@ -88,4 +118,18 @@ public class BoidFlockTrigger : MonoBehaviour
             }
         }
     }
+
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        if (scatterSound == null)
+        {
+            scatterSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/616623__trp__121003-pigeon-flock-fly-away-wing-flaps-toronto.wav");
+            if (scatterSound != null)
+            {
+                UnityEditor.EditorUtility.SetDirty(this);
+            }
+        }
+    }
+#endif
 }

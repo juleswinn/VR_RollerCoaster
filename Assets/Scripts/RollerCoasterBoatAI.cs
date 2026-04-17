@@ -12,6 +12,14 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class RollerCoasterBoatAI : MonoBehaviour
 {
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        if (engineSound == null)
+            engineSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/boatengine_revlowloop.wav");
+    }
+#endif
+
     [Header("Lake Settings")]
     public Vector3 lakeCenter   = Vector3.zero;
     public float   patrolRadius = 100f;
@@ -43,6 +51,7 @@ public class RollerCoasterBoatAI : MonoBehaviour
     // ──────────────────────────────────────────────────────────────────
     private Rigidbody    _rb;
     private Transform    _coaster;
+    private CoasterTrainController _ctc;
     private Vector3      _waypoint;
     private bool         _isBursting;
     private float        _splashTimer;
@@ -174,11 +183,13 @@ public class RollerCoasterBoatAI : MonoBehaviour
         {
             _audioSrc.pitch = Mathf.Lerp(_audioSrc.pitch, _isBursting ? 1.6f : 0.85f, Time.deltaTime * 2.5f);
             
-            float camHeight = Camera.main != null ? Camera.main.transform.position.y : transform.position.y;
-            float camDist = Camera.main != null ? Vector3.Distance(Camera.main.transform.position, transform.position) : 999f;
+            float camHeight = _coaster != null ? _coaster.position.y : transform.position.y;
+            float camDist = _coaster != null ? Vector3.Distance(_coaster.position, transform.position) : 999f;
             
-            // Eğer kamera yüksekteyse veya 150 metreden uzaksa sesi tamamen 0'a çek (dengesiz yerlerde çıkmaması için)
-            if (camHeight > 30f || camDist > 150f)
+            // Eğer kamera yüksekteyse, 150 metreden uzaksa veya TUNELDEYSE sesi tamamen 0'a çek
+            bool inTunnel = _ctc != null && _ctc.IsInTunnel();
+            
+            if (camHeight > 30f || camDist > 150f || inTunnel)
             {
                 _audioSrc.volume = Mathf.Lerp(_audioSrc.volume, 0f, Time.deltaTime * 3f);
             }
@@ -274,8 +285,8 @@ public class RollerCoasterBoatAI : MonoBehaviour
         // Teknenin arkasından + kameraya doğru eğ
         Vector3 spawnPos = transform.position - transform.forward * 2f + Vector3.up * 0.2f;
         var fx = Instantiate(splashPrefab, spawnPos, Quaternion.identity);
-        if (Camera.main != null)
-            fx.transform.LookAt(Camera.main.transform.position);
+        if (_coaster != null)
+            fx.transform.LookAt(_coaster.position);
         Destroy(fx, 2.5f);
     }
 
@@ -285,17 +296,17 @@ public class RollerCoasterBoatAI : MonoBehaviour
     Vector3 AvoidanceForce()
     {
         Vector3 force = Vector3.zero;
-        float neighborDist = 18f; // Mesafe artırıldı
+        float neighborDist = 6f; // Azaltıldı
         int count = 0;
 
         foreach (var other in _allBoats)
         {
-            if (other == this) continue;
+            if (other == this || other == null) continue;
             float d = Vector3.Distance(transform.position, other.transform.position);
             if (d < neighborDist && d > 0.001f)
             {
                 Vector3 diff = (transform.position - other.transform.position).normalized;
-                force += (diff / d) * 12f; // İtme gücü artırıldı çok etkili olması için
+                force += (diff / d) * 3f; // İtme gücü düşürüldü
                 count++;
             }
         }
@@ -318,5 +329,8 @@ public class RollerCoasterBoatAI : MonoBehaviour
         // Player tag dene
         var tagged = GameObject.FindWithTag("Player");
         if (tagged != null) _coaster = tagged.transform;
+        
+        if (_coaster != null) _ctc = _coaster.GetComponentInParent<CoasterTrainController>();
+        if (_ctc == null) _ctc = FindFirstObjectByType<CoasterTrainController>();
     }
 }

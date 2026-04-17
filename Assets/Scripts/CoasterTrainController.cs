@@ -82,6 +82,12 @@ public class CoasterTrainController : MonoBehaviour
     public void SetCurrentSpeed(float value) { currentSpeed = Mathf.Max(0f, value); }
     public Transform GetTrainRoot() => trainRoot;
     public void SetExternalControl(bool enabled) { externalControl = enabled; }
+    
+    // Tünel bölgesi (0.38 ile 0.57 arası CrystalCaveTunnel içidir)
+    public bool IsInTunnel()
+    {
+        return t >= 0.38f && t <= 0.57f;
+    }
 
     public void SetSpline(SplineContainer container)
     {

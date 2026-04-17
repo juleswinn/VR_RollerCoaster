@@ -20,14 +20,27 @@ public class FireworksFinale : MonoBehaviour
     [Header("Audio")]
     public AudioClip fireworkSound;
     
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        if (fireworkSound == null)
+            fireworkSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/569846__danlucaz__fireworks-1.wav");
+    }
+#endif
+
     private Transform _target;
     private CoasterTrainController _coasterController;
     private bool _triggered = false;
 
     void Start()
     {
-        Camera cam = Camera.main;
-        if (cam != null) _target = cam.transform;
+        var train = FindFirstObjectByType<CoasterTrainController>();
+        if (train != null) _target = train.transform;
+        else 
+        {
+            var cams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            if (cams.Length > 0) _target = cams[0].transform;
+        }
         
         _coasterController = FindFirstObjectByType<CoasterTrainController>();
     }
@@ -42,8 +55,13 @@ public class FireworksFinale : MonoBehaviour
         }
         if (_target == null)
         {
-            Camera cam = Camera.main;
-            if (cam != null) _target = cam.transform;
+            var train = FindFirstObjectByType<CoasterTrainController>();
+            if (train != null) _target = train.transform;
+            else 
+            {
+                var cams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                if (cams.Length > 0) _target = cams[0].transform;
+            }
             return;
         }
 
@@ -84,10 +102,19 @@ public class FireworksFinale : MonoBehaviour
 
             SpawnParticleFirework(launchPos, i);
 
-            // Patlama sesi
+            // Patlama sesi (Geniş Erimli Özel AudioSource)
             if (fireworkSound != null)
             {
-                AudioSource.PlayClipAtPoint(fireworkSound, launchPos, 1f);
+                GameObject sfxObj = new GameObject("FireworkSFX");
+                sfxObj.transform.position = launchPos;
+                AudioSource src = sfxObj.AddComponent<AudioSource>();
+                src.clip = fireworkSound;
+                src.spatialBlend = 0.8f; // %80 3D
+                src.minDistance = 30f;
+                src.maxDistance = 500f; // Uzaktan duyulması için devasa
+                src.rolloffMode = AudioRolloffMode.Linear;
+                src.Play();
+                Destroy(sfxObj, fireworkSound.length + 1f);
             }
 
             yield return new WaitForSeconds(burstInterval + Random.Range(-0.2f, 0.2f));

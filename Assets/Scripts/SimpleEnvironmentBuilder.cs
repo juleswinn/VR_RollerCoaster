@@ -2521,8 +2521,8 @@ public class SimpleEnvironmentBuilder : MonoBehaviour
                 DestroyImmediate(comp);
             foreach (var comp in spare.GetComponentsInChildren<MonoBehaviour>())
             {
-                // SimpleEnvironmentBuilder ve AnimalWander hariç diğer C# scriptleri temizle
-                if (comp.GetType().Name.Contains("Coaster") || comp.GetType().Name.Contains("Follow") || comp.GetType().Name.Contains("AI"))
+                string compName = comp.GetType().Name;
+                if (compName.Contains("Coaster") || compName.Contains("Follow") || compName.Contains("AI") || compName.Contains("XR") || compName.Contains("Binder"))
                     DestroyImmediate(comp);
             }
             foreach (var cam in spare.GetComponentsInChildren<Camera>(true))
